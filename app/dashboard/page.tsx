@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Bell, X, DollarSign, History } from 'lucide-react';
-import { createBrowserSupabaseClient } from '../lib/supabase';
+import { createBrowserSupabaseClient } from '../../lib/supabase';
 
 type Alert = {
   id: string;
