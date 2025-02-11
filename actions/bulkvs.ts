@@ -1,6 +1,13 @@
 'use server';
 
 import crypto from 'crypto';
+import { createServerSupabaseClient } from '@/lib/supabase';
+import {
+  getNextDID,
+  updateDIDPerformance,
+  handleSuspiciousActivity,
+  getSecurityStatus,
+} from './security';
 
 // Base URL for BulkVS API
 const BASE_URL = 'https://api.bulkvs.com/v1';
@@ -8,24 +15,76 @@ const BASE_URL = 'https://api.bulkvs.com/v1';
 // Strict duration and limit settings
 export const SETTINGS = {
   CALL: {
-    MAX_DURATION: 6, // Maximum 6 seconds
-    COOLDOWN: 60, // 60 seconds cooldown between calls
-    SPEECH_RATE: 1.3, // Slightly faster speech
-    ANSWER_TIMEOUT: 12, // Reduced timeout
-    MACHINE_TIMEOUT: 3, // Fast voicemail detection
-    DAILY_LIMIT: 30, // Maximum calls per day
+    LIMITS: {
+      DAILY: 30,
+      CONCURRENT: 5,
+      PER_MINUTE: 10,
+    },
+    DURATION: {
+      MAX: 6, // Maximum 6 seconds
+      MIN: 2, // Minimum duration to ensure message is heard
+    },
+    COOLDOWN: {
+      DURATION: 60, // 60 seconds between calls
+      CHECK_INTERVAL: 1000, // Check cooldown every second
+    },
+    SPEECH: {
+      RATE: 1.3,
+      VOICE: 'neural' as const,
+      WORDS_PER_SECOND: 2.5,
+      MAX_WORDS: Math.floor(2.5 * 1.3 * 6), // Based on duration and rate
+      OPTIMIZATION: {
+        REMOVE_PATTERNS: [
+          /please|kindly|would you|could you/gi,
+          /notification|alert|message/gi,
+          /your|the|a|an/gi,
+        ],
+      },
+    },
+    TIMEOUTS: {
+      ANSWER: 12,
+      MACHINE: 3,
+      DTMF: 2,
+    },
   },
   SMS: {
-    COOLDOWN: 30, // 30 seconds between SMS
-    DAILY_LIMIT: 50, // Maximum SMS per day
-  }
+    LIMITS: {
+      DAILY: 50,
+      PER_MINUTE: 20,
+    },
+    COOLDOWN: {
+      DURATION: 30, // 30 seconds between SMS
+      CHECK_INTERVAL: 1000,
+    },
+    MESSAGE: {
+      MAX_LENGTH: 160,
+      UNICODE_SUPPORT: true,
+    },
+  },
+  ERROR_HANDLING: {
+    AUTO_RETRY_CODES: [408, 500, 502, 503, 504],
+    MAX_RETRIES: 2,
+    BACKOFF: {
+      INITIAL_DELAY: 60000, // 1 minute
+      MULTIPLIER: 2,
+      MAX_DELAY: 300000, // 5 minutes
+    },
+  },
+  CLEANUP: {
+    PROBABILITY: 0.1,
+    MAX_CACHE_AGE: 24 * 60 * 60 * 1000, // 24 hours
+    MIN_ENTRIES_FOR_CLEANUP: 1000, // Start cleaning when cache gets large
+  },
+  DID_ROTATION: {
+    STRATEGY: 'round-robin' as const,
+    BACKUP_NUMBER: process.env.BULKVS_FROM_NUMBER!,
+    MAX_CONSECUTIVE_USES: 10,
+  },
+  TIMEZONE: {
+    DEFAULT: 'UTC',
+    RESET_HOUR: 0, // When daily limits reset
+  },
 } as const;
-
-// Usage tracking
-const callCooldowns = new Map<string, number>();
-const smsCooldowns = new Map<string, number>();
-const dailyCallCounts = new Map<string, { count: number; date: string }>();
-const dailySMSCounts = new Map<string, { count: number; date: string }>();
 
 // DID pool for shared numbers
 const DID_POOL = process.env.BULKVS_DID_POOL?.split(',') || [];
@@ -46,17 +105,8 @@ Object.entries(requiredEnvVars).forEach(([key, value]) => {
   }
 });
 
-// Get next DID from pool (round-robin)
-function getNextDID(): string {
-  if (DID_POOL.length === 0) {
-    return process.env.BULKVS_FROM_NUMBER!;
-  }
-  const did = DID_POOL[currentDidIndex];
-  currentDidIndex = (currentDidIndex + 1) % DID_POOL.length;
-  return did;
-}
-
-interface CallOptions {
+// Types
+export interface CallOptions {
   phone: string;
   message: string;
   retryCount?: number;
@@ -67,135 +117,38 @@ interface CallOptions {
   bypassDailyLimit?: boolean;
 }
 
+export interface SMSOptions {
+  phone: string;
+  message: string;
+  isEmergency?: boolean;
+  bypassLimits?: boolean;
+}
+
 // Get today's date in YYYY-MM-DD format
 function getTodayDate(): string {
   return new Date().toISOString().split('T')[0];
 }
 
-interface MessageLimits {
-  count: number;
-  date: string;
-}
-
-// Check if user has reached daily limit
-function hasReachedDailyLimit(
-  phone: string,
-  type: 'call' | 'sms'
-): boolean {
-  const today = getTodayDate();
-  const counts = type === 'call' ? dailyCallCounts : dailySMSCounts;
-  const limit = type === 'call' ? SETTINGS.CALL.DAILY_LIMIT : SETTINGS.SMS.DAILY_LIMIT;
-  const usage = counts.get(phone);
-
-  // Reset count if it's a new day
-  if (!usage || usage.date !== today) {
-    counts.set(phone, { count: 0, date: today });
-    return false;
-  }
-
-  return usage.count >= limit;
-}
-
-// Update daily count
-function incrementDailyCount(
-  phone: string,
-  type: 'call' | 'sms'
-): void {
-  const today = getTodayDate();
-  const counts = type === 'call' ? dailyCallCounts : dailySMSCounts;
-  const usage = counts.get(phone);
-
-  if (!usage || usage.date !== today) {
-    counts.set(phone, { count: 1, date: today });
-  } else {
-    counts.set(phone, {
-      count: usage.count + 1,
-      date: today,
-    });
-  }
-
-  // Cleanup old entries (10% chance)
-  if (Math.random() < 0.1) {
-    for (const [number, data] of counts.entries()) {
-      if (data.date !== today) {
-        counts.delete(number);
-      }
-    }
-  }
-}
-
-// Check cooldown
-function isInCooldown(
-  phone: string,
-  type: 'call' | 'sms'
-): boolean {
-  const cooldowns = type === 'call' ? callCooldowns : smsCooldowns;
-  const cooldownTime = type === 'call' ? SETTINGS.CALL.COOLDOWN : SETTINGS.SMS.COOLDOWN;
-  const lastTime = cooldowns.get(phone);
-  
-  if (!lastTime) return false;
-
-  const timeSince = Date.now() - lastTime;
-  return timeSince < cooldownTime * 1000;
-}
-
-// Update cooldown
-function updateCooldown(
-  phone: string,
-  type: 'call' | 'sms'
-): void {
-  const cooldowns = type === 'call' ? callCooldowns : smsCooldowns;
-  const cooldownTime = type === 'call' ? SETTINGS.CALL.COOLDOWN : SETTINGS.SMS.COOLDOWN;
-  
-  cooldowns.set(phone, Date.now());
-
-  // Cleanup old entries (10% chance)
-  if (Math.random() < 0.1) {
-    const now = Date.now();
-    for (const [number, timestamp] of cooldowns.entries()) {
-      if (now - timestamp > cooldownTime * 1000) {
-        cooldowns.delete(number);
-      }
-    }
-  }
-}
-
-// Get remaining messages
-function getRemaining(
-  phone: string,
-  type: 'call' | 'sms'
-): number {
-  const today = getTodayDate();
-  const counts = type === 'call' ? dailyCallCounts : dailySMSCounts;
-  const limit = type === 'call' ? SETTINGS.CALL.DAILY_LIMIT : SETTINGS.SMS.DAILY_LIMIT;
-  const usage = counts.get(phone);
-
-  if (!usage || usage.date !== today) {
-    return limit;
-  }
-
-  return Math.max(0, limit - usage.count);
-}
-
-// Optimize message for short duration
+// Keep the optimizeMessage function as it's used in makeCall
 function optimizeMessage(message: string): string {
   // Remove unnecessary words and shorten the message
-  const optimized = message
-    .replace(/please|kindly|would you|could you/gi, '')
-    .replace(/notification|alert|message/gi, '')
-    .replace(/your|the|a|an/gi, '')
-    .replace(/\s+/g, ' ') // Remove extra spaces
-    .trim();
+  let optimized = message;
+  
+  // Apply each optimization pattern
+  SETTINGS.CALL.SPEECH.OPTIMIZATION.REMOVE_PATTERNS.forEach(pattern => {
+    optimized = optimized.replace(pattern, '');
+  });
+  
+  // Remove extra spaces
+  optimized = optimized.replace(/\s+/g, ' ').trim();
 
   // Ensure message can be spoken within duration limit
-  // Assuming average speech rate of 150 words per minute
-  const wordsPerSecond = 2.5 * SETTINGS.CALL.SPEECH_RATE;
-  const maxWords = Math.floor(wordsPerSecond * SETTINGS.CALL.MAX_DURATION);
-  
-  return optimized.split(' ').slice(0, maxWords).join(' ');
+  return optimized.split(' ')
+    .slice(0, SETTINGS.CALL.SPEECH.MAX_WORDS)
+    .join(' ');
 }
 
-// Helper function for API calls
+// Keep the bulkvsRequest function as it's used in makeCall and sendSMS
 async function bulkvsRequest<T>(endpoint: string, method: string, data?: any): Promise<T> {
   const auth = Buffer.from(
     `${process.env.BULKVS_API_KEY}:${process.env.BULKVS_API_SECRET}`
@@ -218,58 +171,226 @@ async function bulkvsRequest<T>(endpoint: string, method: string, data?: any): P
   return response.json();
 }
 
-interface SMSOptions {
-  phone: string;
-  message: string;
-  isEmergency?: boolean;
-  bypassLimits?: boolean;
+// Keep the getUsageLimits function as it's used in makeCall and sendSMS
+async function getUsageLimits(userId: string, phone: string, type: 'call' | 'sms'): Promise<{
+  count: number;
+  lastUsedAt: Date | null;
+  remainingToday: number;
+  isInCooldown: boolean;
+  cooldownRemaining: number;
+  isRateLimited: boolean;
+  rateLimitReset: number;
+  isBlocked: boolean;
+  blockReason?: string;
+  blockRemaining?: number;
+  riskScore: number;
+}> {
+  const supabase = await createServerSupabaseClient();
+  const today = new Date().toISOString().split('T')[0];
+  
+  // Get security status first
+  const security = await getSecurityStatus(userId, phone);
+  
+  // Get or create today's usage record
+  const { data: usage, error } = await supabase
+    .from('usage_limits')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('phone_number', phone)
+    .eq('date', today)
+    .single();
+
+  if (error && error.code !== 'PGRST116') { // Not found error
+    throw error;
+  }
+
+  if (!usage) {
+    const { data: newUsage, error: insertError } = await supabase
+      .from('usage_limits')
+      .insert({
+        user_id: userId,
+        phone_number: phone,
+        date: today,
+        calls_last_minute: [],
+        sms_last_minute: [],
+        last_cleanup_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (insertError) throw insertError;
+    
+    return {
+      count: 0,
+      lastUsedAt: null,
+      remainingToday: type === 'call' ? SETTINGS.CALL.LIMITS.DAILY : SETTINGS.SMS.LIMITS.DAILY,
+      isInCooldown: false,
+      cooldownRemaining: 0,
+      isRateLimited: false,
+      rateLimitReset: 0,
+      ...security,
+    };
+  }
+
+  const count = type === 'call' ? usage.call_count : usage.sms_count;
+  const lastUsedAt = type === 'call' ? usage.last_call_at : usage.last_sms_at;
+  const limit = type === 'call' ? SETTINGS.CALL.LIMITS.DAILY : SETTINGS.SMS.LIMITS.DAILY;
+  const cooldownDuration = type === 'call' 
+    ? SETTINGS.CALL.COOLDOWN.DURATION 
+    : SETTINGS.SMS.COOLDOWN.DURATION;
+
+  const now = new Date();
+  const cooldownRemaining = lastUsedAt 
+    ? Math.max(0, cooldownDuration - Math.floor((now.getTime() - new Date(lastUsedAt).getTime()) / 1000))
+    : 0;
+
+  // Check rate limits
+  const timestamps = type === 'call' ? usage.calls_last_minute : usage.sms_last_minute;
+  const maxPerMinute = type === 'call' ? SETTINGS.CALL.LIMITS.PER_MINUTE : SETTINGS.SMS.LIMITS.PER_MINUTE;
+  const currentTime = Math.floor(now.getTime() / 1000);
+  const recentTimestamps = (timestamps || []).filter((ts: number) => ts > currentTime - 60);
+  const isRateLimited = recentTimestamps.length >= maxPerMinute;
+  const rateLimitReset = isRateLimited ? Math.max(...recentTimestamps) + 60 - currentTime : 0;
+
+  return {
+    count,
+    lastUsedAt: lastUsedAt ? new Date(lastUsedAt) : null,
+    remainingToday: Math.max(0, limit - count),
+    isInCooldown: cooldownRemaining > 0,
+    cooldownRemaining,
+    isRateLimited,
+    rateLimitReset,
+    ...security,
+  };
 }
 
+// Keep the incrementUsage function as it's used in makeCall and sendSMS
+async function incrementUsage(userId: string, phone: string, type: 'call' | 'sms'): Promise<void> {
+  const supabase = await createServerSupabaseClient();
+  const today = new Date().toISOString().split('T')[0];
+  
+  // First, try to get the current record
+  const { data: existing } = await supabase
+    .from('usage_limits')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('phone_number', phone)
+    .eq('date', today)
+    .single();
+
+  if (existing) {
+    // Update existing record with rate limit tracking
+    const currentTime = Math.floor(Date.now() / 1000);
+    const timestamps = type === 'call' ? existing.calls_last_minute : existing.sms_last_minute;
+    const recentTimestamps = [...(timestamps || [])].filter(ts => ts > currentTime - 60);
+    recentTimestamps.push(currentTime);
+
+    const updates = type === 'call' 
+      ? { 
+          call_count: existing.call_count + 1,
+          last_call_at: new Date().toISOString(),
+          calls_last_minute: recentTimestamps,
+        }
+      : {
+          sms_count: existing.sms_count + 1,
+          last_sms_at: new Date().toISOString(),
+          sms_last_minute: recentTimestamps,
+        };
+
+    const { error: updateError } = await supabase
+      .from('usage_limits')
+      .update(updates)
+      .eq('user_id', userId)
+      .eq('phone_number', phone)
+      .eq('date', today);
+
+    if (updateError) throw updateError;
+  } else {
+    // Insert new record with initial rate limit tracking
+    const currentTime = Math.floor(Date.now() / 1000);
+    const newRecord = {
+      user_id: userId,
+      phone_number: phone,
+      date: today,
+      call_count: type === 'call' ? 1 : 0,
+      sms_count: type === 'sms' ? 1 : 0,
+      last_call_at: type === 'call' ? new Date().toISOString() : null,
+      last_sms_at: type === 'sms' ? new Date().toISOString() : null,
+      calls_last_minute: type === 'call' ? [currentTime] : [],
+      sms_last_minute: type === 'sms' ? [currentTime] : [],
+      last_cleanup_at: new Date().toISOString(),
+    };
+
+    const { error: insertError } = await supabase
+      .from('usage_limits')
+      .insert(newRecord);
+
+    if (insertError) throw insertError;
+  }
+}
+
+// Update sendSMS function to use new settings
 export async function sendSMS({
+  userId,
   phone,
   message,
   isEmergency = false,
   bypassLimits = false,
-}: SMSOptions) {
+}: SMSOptions & { userId: string }) {
   try {
-    // Check daily limit
-    if (!bypassLimits && !isEmergency && hasReachedDailyLimit(phone, 'sms')) {
-      return {
-        error: `Daily SMS limit (${SETTINGS.SMS.DAILY_LIMIT}) reached for ${phone}. Please try again tomorrow.`,
-        remainingSMS: 0,
-        nextResetTime: `${getTodayDate()}T23:59:59Z`,
-      };
+    if (!bypassLimits && !isEmergency) {
+      const usage = await getUsageLimits(userId, phone, 'sms');
+      
+      if (usage.remainingToday <= 0) {
+        return {
+          error: `Daily SMS limit (${SETTINGS.SMS.LIMITS.DAILY}) reached for ${phone}. Please try again tomorrow.`,
+          remainingSMS: 0,
+          nextResetTime: `${getTodayDate()}T${SETTINGS.TIMEZONE.RESET_HOUR.toString().padStart(2, '0')}:00:00Z`,
+        };
+      }
+
+      if (usage.isInCooldown) {
+        return {
+          error: `SMS to ${phone} is in cooldown. Please wait ${usage.cooldownRemaining} seconds.`,
+          cooldownRemaining: usage.cooldownRemaining,
+        };
+      }
+
+      if (usage.isRateLimited) {
+        return {
+          error: `Rate limit exceeded. Please wait ${usage.rateLimitReset} seconds.`,
+          rateLimitReset: usage.rateLimitReset,
+        };
+      }
     }
 
-    // Check cooldown
-    if (!bypassLimits && !isEmergency && isInCooldown(phone, 'sms')) {
-      return {
-        error: `SMS to ${phone} is in cooldown. Please wait ${SETTINGS.SMS.COOLDOWN} seconds.`,
-        cooldownRemaining: Math.ceil(
-          (smsCooldowns.get(phone)! + SETTINGS.SMS.COOLDOWN * 1000 - Date.now()) / 1000
-        ),
-      };
-    }
+    // Truncate message if needed
+    const truncatedMessage = SETTINGS.SMS.MESSAGE.UNICODE_SUPPORT
+      ? message.slice(0, SETTINGS.SMS.MESSAGE.MAX_LENGTH)
+      : message.slice(0, SETTINGS.SMS.MESSAGE.MAX_LENGTH).replace(/[^\x00-\x7F]/g, '?');
 
     const response = await bulkvsRequest<{ id: string }>('/messages', 'POST', {
       to: phone,
       from: getNextDID(),
-      text: message,
+      text: truncatedMessage,
       custom_params: {
         emergency: isEmergency.toString(),
+        user_id: userId,
       },
     });
 
-    // Update tracking unless bypassed
+    // Update usage in database
     if (!bypassLimits) {
-      updateCooldown(phone, 'sms');
-      incrementDailyCount(phone, 'sms');
+      await incrementUsage(userId, phone, 'sms');
     }
+
+    const usage = await getUsageLimits(userId, phone, 'sms');
 
     return {
       success: true,
       messageId: response.id,
-      remainingSMS: getRemaining(phone, 'sms'),
+      remainingSMS: usage.remainingToday,
+      truncated: truncatedMessage.length < message.length,
     };
   } catch (error) {
     console.error('Error sending SMS:', error);
@@ -279,92 +400,132 @@ export async function sendSMS({
   }
 }
 
-// Update makeCall to use new helper functions
+// Update makeCall function to use security features
 export async function makeCall({
+  userId,
   phone,
   message,
-  retryCount = 1,
-  retryDelay = 60000,
+  retryCount = SETTINGS.ERROR_HANDLING.MAX_RETRIES,
+  retryDelay = SETTINGS.ERROR_HANDLING.BACKOFF.INITIAL_DELAY,
   isEmergency = false,
   shouldFallbackToSMS = true,
   bypassCooldown = false,
   bypassDailyLimit = false,
-}: CallOptions) {
+}: CallOptions & { userId: string }) {
   try {
-    // Check daily limit
-    if (!bypassDailyLimit && !isEmergency && hasReachedDailyLimit(phone, 'call')) {
-      return {
-        error: `Daily call limit (${SETTINGS.CALL.DAILY_LIMIT}) reached for ${phone}. Please try again tomorrow.`,
-        remainingCalls: 0,
-        nextResetTime: `${getTodayDate()}T23:59:59Z`,
-      };
+    if (!bypassDailyLimit && !isEmergency) {
+      const usage = await getUsageLimits(userId, phone, 'call');
+      
+      // Check for blocks first
+      if (usage.isBlocked) {
+        return {
+          error: `This number is temporarily blocked. Reason: ${usage.blockReason}. Try again in ${usage.blockRemaining} seconds.`,
+          blockRemaining: usage.blockRemaining,
+          blockReason: usage.blockReason,
+        };
+      }
+
+      // High risk warning
+      if (usage.riskScore >= 0.7) {
+        console.warn(`High risk activity detected for user ${userId} and phone ${phone}`);
+      }
+
+      if (usage.remainingToday <= 0) {
+        return {
+          error: `Daily call limit (${SETTINGS.CALL.LIMITS.DAILY}) reached for ${phone}. Please try again tomorrow.`,
+          remainingCalls: 0,
+          nextResetTime: `${getTodayDate()}T${SETTINGS.TIMEZONE.RESET_HOUR.toString().padStart(2, '0')}:00:00Z`,
+        };
+      }
+
+      if (!bypassCooldown && usage.isInCooldown) {
+        return {
+          error: `Call to ${phone} is in cooldown. Please wait ${usage.cooldownRemaining} seconds.`,
+          cooldownRemaining: usage.cooldownRemaining,
+        };
+      }
+
+      if (usage.isRateLimited) {
+        return {
+          error: `Rate limit exceeded. Please wait ${usage.rateLimitReset} seconds.`,
+          rateLimitReset: usage.rateLimitReset,
+        };
+      }
     }
 
-    // Check cooldown
-    if (!bypassCooldown && !isEmergency && isInCooldown(phone, 'call')) {
-      return {
-        error: `Call to ${phone} is in cooldown. Please wait ${SETTINGS.CALL.COOLDOWN} seconds.`,
-        cooldownRemaining: Math.ceil(
-          (callCooldowns.get(phone)! + SETTINGS.CALL.COOLDOWN * 1000 - Date.now()) / 1000
-        ),
-      };
-    }
-
+    // Get best performing DID
+    const didNumber = await getNextDID();
+    
     const optimizedMessage = optimizeMessage(message);
     
     const response = await bulkvsRequest<{ id: string }>('/calls', 'POST', {
       to: phone,
-      from: getNextDID(),
+      from: didNumber,
       webhook_url: process.env.BULKVS_WEBHOOK_URL,
       settings: {
-        max_duration: SETTINGS.CALL.MAX_DURATION,
-        answer_timeout: SETTINGS.CALL.ANSWER_TIMEOUT,
+        max_duration: SETTINGS.CALL.DURATION.MAX,
+        answer_timeout: SETTINGS.CALL.TIMEOUTS.ANSWER,
         machine_detection: {
           enabled: true,
           mode: 'fast',
-          timeout: SETTINGS.CALL.MACHINE_TIMEOUT,
+          timeout: SETTINGS.CALL.TIMEOUTS.MACHINE,
         },
-        dtmf_timeout: 2,
+        dtmf_timeout: SETTINGS.CALL.TIMEOUTS.DTMF,
         speech: {
-          voice: 'neural',
-          speed: SETTINGS.CALL.SPEECH_RATE,
+          voice: SETTINGS.CALL.SPEECH.VOICE,
+          speed: SETTINGS.CALL.SPEECH.RATE,
           text: optimizedMessage,
         },
         hangup: {
           after_speak: true,
-          max_duration: SETTINGS.CALL.MAX_DURATION,
+          max_duration: SETTINGS.CALL.DURATION.MAX,
         },
       },
       custom_params: {
         emergency: isEmergency.toString(),
         message: Buffer.from(optimizedMessage).toString('base64'),
+        user_id: userId,
+        did_number: didNumber,
       },
     });
 
-    // Update tracking unless bypassed
-    if (!bypassCooldown) {
-      updateCooldown(phone, 'call');
-    }
+    // Track DID usage
+    await updateDIDPerformance(didNumber, 'initiated', 0, false);
+
+    // Update usage in database
     if (!bypassDailyLimit) {
-      incrementDailyCount(phone, 'call');
+      await incrementUsage(userId, phone, 'call');
     }
+
+    const usage = await getUsageLimits(userId, phone, 'call');
 
     return {
       success: true,
       callId: response.id,
       message: optimizedMessage,
-      remainingCalls: getRemaining(phone, 'call'),
+      remainingCalls: usage.remainingToday,
     };
   } catch (error) {
     console.error('Error making call:', error);
 
-    if (retryCount > 0) {
+    // Handle failures
+    await handleSuspiciousActivity(userId, phone, 'consecutive_failures');
+
+    // Check if error code is in auto-retry list
+    const errorCode = error instanceof Error && 'code' in error ? (error as any).code : null;
+    const shouldRetry = errorCode ? SETTINGS.ERROR_HANDLING.AUTO_RETRY_CODES.includes(errorCode) : true;
+
+    if (shouldRetry && retryCount > 0) {
       await new Promise((resolve) => setTimeout(resolve, retryDelay));
       return makeCall({
+        userId,
         phone,
         message,
         retryCount: retryCount - 1,
-        retryDelay: retryDelay * 2,
+        retryDelay: Math.min(
+          retryDelay * SETTINGS.ERROR_HANDLING.BACKOFF.MULTIPLIER,
+          SETTINGS.ERROR_HANDLING.BACKOFF.MAX_DELAY
+        ),
         isEmergency,
         shouldFallbackToSMS,
         bypassCooldown,
@@ -373,7 +534,7 @@ export async function makeCall({
     }
 
     if (shouldFallbackToSMS) {
-      return sendSMS({ phone, message, isEmergency, bypassLimits: bypassDailyLimit });
+      return sendSMS({ userId, phone, message, isEmergency, bypassLimits: bypassDailyLimit });
     }
 
     return {
@@ -389,4 +550,7 @@ export function generateWebhookSignature(payload: string, timestamp: string): st
     .createHmac('sha256', process.env.BULKVS_WEBHOOK_SECRET!)
     .update(message)
     .digest('hex');
-} 
+}
+
+// Add webhook handler
+// Remove entire handleCallWebhook function 
