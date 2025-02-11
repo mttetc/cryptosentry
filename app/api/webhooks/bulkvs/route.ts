@@ -5,6 +5,7 @@ import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 import { z } from 'zod';
 import { generateWebhookSignature } from '@/actions/bulkvs';
+import { getMessagingProvider } from '@/actions/messaging';
 
 // Initialize rate limiter
 const redis = new Redis({
@@ -51,8 +52,8 @@ function validateWebhook(request: NextRequest, body: string): boolean {
     return false;
   }
 
-  const expectedSignature = generateWebhookSignature(body, timestamp);
-  return signature === expectedSignature;
+  const provider = getMessagingProvider();
+  return provider.validateWebhook(signature, body, timestamp);
 }
 
 // Log webhook request
@@ -122,47 +123,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
     }
 
-    const { event, call_id, status, duration, machine_detection, custom_params } = validatedData.data;
-
-    // Handle different event types
-    switch (event) {
-      case 'call.answered': {
-        // If voicemail detected, hang up immediately
-        if (machine_detection?.result === 'machine') {
-          return NextResponse.json({ actions: [{ hangup: {} }] });
-        }
-
-        // Get message from custom params
-        const messageBase64 = custom_params?.message;
-        if (!messageBase64) {
-          throw new Error('No message provided');
-        }
-
-        const message = Buffer.from(messageBase64, 'base64').toString();
-        return NextResponse.json(generateCallResponse(message));
-      }
-
-      case 'call.completed':
-      case 'call.failed': {
-        const supabase = await createServerSupabaseClient();
-        
-        // Update alert history
-        const { error } = await supabase
-          .from('alert_history')
-          .update({
-            call_status: status,
-            call_duration: duration,
-            machine_detected: machine_detection?.result === 'machine',
-            updated_at: new Date().toISOString(),
-          })
-          .eq('call_id', call_id);
-
-        if (error) {
-          await logWebhookRequest('error', payload, error);
-          throw error;
-        }
-      }
-    }
+    // Handle webhook with provider
+    const provider = getMessagingProvider();
+    await provider.handleCallWebhook(validatedData.data);
 
     // Log successful processing
     await logWebhookRequest('processed', payload);
