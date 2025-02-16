@@ -1,16 +1,15 @@
 import { Suspense } from 'react';
-import { getActiveAlerts, preloadActiveAlerts } from '@/actions/monitor';
-import { AlertsList } from '@/components/alerts/AlertsList';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { AlertsSkeleton } from '@/components/skeletons/AlertsSkeleton';
 import { CreateAlertForm } from '@/components/alerts/CreateAlertForm';
+import { MonitoringStream } from '@/components/monitoring/MonitoringStream';
+import { AlertsList } from '@/components/alerts/AlertsList';
+import { UserPreferences } from '@/components/settings/UserPreferences';
+import { useMonitoringStore } from '@/stores/monitoring';
 
-// Preload alerts data
-preloadActiveAlerts();
-
-async function Alerts() {
-  const { priceAlerts, socialAlerts } = await getActiveAlerts();
+function Alerts() {
+  const { priceAlerts, socialAlerts } = useMonitoringStore();
   
   return (
     <AlertsList 
@@ -33,8 +32,14 @@ export default function DashboardPage() {
           <CreateAlertForm />
         </Suspense>
         
+        <MonitoringStream />
+        
         <Suspense fallback={<AlertsSkeleton />}>
           <Alerts />
+        </Suspense>
+
+        <Suspense fallback={<div className="h-[400px] rounded-md bg-muted animate-pulse" />}>
+          <UserPreferences />
         </Suspense>
       </div>
     </DashboardShell>

@@ -85,36 +85,6 @@ export async function saveCustomAudio(
   }
 }
 
-export async function getUserSounds() {
-  try {
-    const supabase = await createServerSupabaseClient();
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    if (!session) {
-      throw new Error('Unauthorized');
-    }
-
-    const { data: sounds, error } = await supabase
-      .from('custom_sounds')
-      .select('*')
-      .eq('user_id', session.user.id)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-
-    return {
-      success: true,
-      sounds,
-    };
-  } catch (error) {
-    return {
-      error: error instanceof Error ? error.message : 'Failed to fetch sounds',
-    };
-  }
-}
-
 export async function deleteSound(soundId: string) {
   try {
     const supabase = await createServerSupabaseClient();

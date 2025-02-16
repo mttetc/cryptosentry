@@ -1,3 +1,5 @@
+'use server';
+
 import { createServerSupabaseClient } from '@/lib/supabase';
 import { SETTINGS } from './config';
 
@@ -114,6 +116,7 @@ export async function getUsageLimits(
   };
 }
 
+// Update usage tracking
 export async function incrementUsage(
   userId: string,
   phone: string,
@@ -121,63 +124,46 @@ export async function incrementUsage(
 ): Promise<void> {
   const supabase = await createServerSupabaseClient();
   const today = new Date().toISOString().split('T')[0];
-  
-  // First, try to get the current record
-  const { data: existing } = await supabase
-    .from('usage_limits')
-    .select('*')
-    .eq('user_id', userId)
-    .eq('phone_number', phone)
-    .eq('date', today)
-    .single();
+  const now = new Date();
 
-  if (existing) {
-    // Update existing record with rate limit tracking
-    const currentTime = Math.floor(Date.now() / 1000);
-    const timestamps = type === 'call' ? existing.calls_last_minute : existing.sms_last_minute;
-    const recentTimestamps = [...(timestamps || [])].filter(ts => ts > currentTime - 60);
-    recentTimestamps.push(currentTime);
-
-    const updates = type === 'call' 
-      ? { 
-          call_count: existing.call_count + 1,
-          last_call_at: new Date().toISOString(),
-          calls_last_minute: recentTimestamps,
-        }
-      : {
-          sms_count: existing.sms_count + 1,
-          last_sms_at: new Date().toISOString(),
-          sms_last_minute: recentTimestamps,
-        };
-
-    const { error: updateError } = await supabase
+  try {
+    // First, check if record exists
+    const { data: existing } = await supabase
       .from('usage_limits')
-      .update(updates)
+      .select('id')
       .eq('user_id', userId)
       .eq('phone_number', phone)
-      .eq('date', today);
+      .eq('date', today)
+      .single();
 
-    if (updateError) throw updateError;
-  } else {
-    // Insert new record with initial rate limit tracking
-    const currentTime = Math.floor(Date.now() / 1000);
-    const newRecord = {
-      user_id: userId,
-      phone_number: phone,
-      date: today,
-      call_count: type === 'call' ? 1 : 0,
-      sms_count: type === 'sms' ? 1 : 0,
-      last_call_at: type === 'call' ? new Date().toISOString() : null,
-      last_sms_at: type === 'sms' ? new Date().toISOString() : null,
-      calls_last_minute: type === 'call' ? [currentTime] : [],
-      sms_last_minute: type === 'sms' ? [currentTime] : [],
-      last_cleanup_at: new Date().toISOString(),
-    };
-
-    const { error: insertError } = await supabase
-      .from('usage_limits')
-      .insert(newRecord);
-
-    if (insertError) throw insertError;
+    if (!existing) {
+      // Create new record if doesn't exist
+      await supabase
+        .from('usage_limits')
+        .insert({
+          user_id: userId,
+          phone_number: phone,
+          date: today,
+          [`${type}_count`]: 1,
+          [`${type}_last_minute`]: [now.toISOString()],
+          [`last_${type}_at`]: now.toISOString(),
+          last_cleanup_at: now.toISOString(),
+        });
+    } else {
+      // Update existing record
+      await supabase
+        .from('usage_limits')
+        .update({
+          [`${type}_count`]: `${type}_count + 1`,
+          [`${type}_last_minute`]: `array_append(${type}_last_minute, '${now.toISOString()}')`,
+          [`last_${type}_at`]: now.toISOString(),
+        })
+        .eq('user_id', userId)
+        .eq('phone_number', phone)
+        .eq('date', today);
+    }
+  } catch (error) {
+    console.error('Error updating usage:', error);
+    throw new Error('Failed to update usage limits');
   }
 } 

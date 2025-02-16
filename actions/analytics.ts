@@ -37,33 +37,54 @@ export async function trackMetric(metric: Metric) {
 
 // Types
 export interface HealthScore {
-  price: number;
-  social: number;
-  calls: number;
-  system: number;
-}
-
-export interface HealthResponse {
-  success: boolean;
-  health?: HealthScore;
-  error?: string;
+  priceHealth: number;
+  socialHealth: number;
+  priceAlerts?: Array<{
+    id: string;
+    symbol: string;
+    price: number;
+    condition: 'above' | 'below';
+    target_price: number;
+    user_id: string;
+    active: boolean;
+    created_at: string;
+  }>;
+  socialAlerts?: Array<{
+    id: string;
+    platform: string;
+    keyword: string;
+    user_id: string;
+    active: boolean;
+    created_at: string;
+  }>;
 }
 
 // Cache health check results
-export const getSystemHealth = cache(async (): Promise<HealthResponse> => {
+export const getSystemHealth = cache(async (): Promise<HealthScore> => {
   try {
-    const [priceHealth, socialHealth, callsHealth, systemHealth] = await Promise.all([
-      checkPriceServiceHealth(),
-      checkSocialServiceHealth(),
-      checkCallServiceHealth(),
-      checkSystemHealth(),
+    const supabase = await createServerSupabaseClient();
+    
+    // Get active alerts count and data
+    const [priceAlerts, socialAlerts] = await Promise.all([
+      supabase
+        .from('price_alerts')
+        .select('*')
+        .eq('active', true),
+      supabase
+        .from('social_alerts')
+        .select('*')
+        .eq('active', true),
     ]);
 
-    const health = {
-      price: priceHealth,
-      social: socialHealth,
-      calls: callsHealth,
-      system: systemHealth,
+    // Calculate health scores based on number of active alerts
+    const priceHealth = calculateHealthScore(priceAlerts.data?.length || 0);
+    const socialHealth = calculateHealthScore(socialAlerts.data?.length || 0);
+
+    const health: HealthScore = {
+      priceHealth,
+      socialHealth,
+      priceAlerts: priceAlerts.data || [],
+      socialAlerts: socialAlerts.data || [],
     };
 
     // Prevent sensitive metrics from being exposed
@@ -72,127 +93,21 @@ export const getSystemHealth = cache(async (): Promise<HealthResponse> => {
       health
     );
 
-    return { success: true, health };
+    return health;
   } catch (error) {
     console.error('Error getting system health:', error);
-    return { success: false, error: 'Failed to get system health' };
+    // Return default health state on error
+    return {
+      priceHealth: 0,
+      socialHealth: 0,
+      priceAlerts: [],
+      socialAlerts: [],
+    };
   }
 });
 
-// Health check functions
-async function checkPriceServiceHealth(): Promise<number> {
-  const supabase = await createServerSupabaseClient();
-  
-  try {
-    const startTime = Date.now();
-    const { data, error } = await supabase
-      .from('price_alerts')
-      .select('count', { count: 'exact' })
-      .limit(1);
-
-    if (error) throw error;
-
-    const responseTime = Date.now() - startTime;
-    
-    if (responseTime < 100) return 100;
-    if (responseTime < 500) return 90;
-    if (responseTime < 1000) return 80;
-    if (responseTime < 2000) return 60;
-    return 40;
-  } catch (error) {
-    console.error('Price service health check failed:', error);
-    return 0;
-  }
-}
-
-async function checkSocialServiceHealth(): Promise<number> {
-  const supabase = await createServerSupabaseClient();
-  
-  try {
-    const startTime = Date.now();
-    const { data, error } = await supabase
-      .from('social_alerts')
-      .select('count', { count: 'exact' })
-      .limit(1);
-
-    if (error) throw error;
-
-    const responseTime = Date.now() - startTime;
-    
-    if (responseTime < 100) return 100;
-    if (responseTime < 500) return 90;
-    if (responseTime < 1000) return 80;
-    if (responseTime < 2000) return 60;
-    return 40;
-  } catch (error) {
-    console.error('Social service health check failed:', error);
-    return 0;
-  }
-}
-
-async function checkCallServiceHealth(): Promise<number> {
-  const supabase = await createServerSupabaseClient();
-  
-  try {
-    const startTime = Date.now();
-    const { data, error } = await supabase
-      .from('alert_history')
-      .select('count', { count: 'exact' })
-      .eq('alert_type', 'call')
-      .limit(1);
-
-    if (error) throw error;
-
-    const responseTime = Date.now() - startTime;
-    
-    if (responseTime < 100) return 100;
-    if (responseTime < 500) return 90;
-    if (responseTime < 1000) return 80;
-    if (responseTime < 2000) return 60;
-    return 40;
-  } catch (error) {
-    console.error('Call service health check failed:', error);
-    return 0;
-  }
-}
-
-async function checkSystemHealth(): Promise<number> {
-  const supabase = await createServerSupabaseClient();
-  
-  try {
-    const startTime = Date.now();
-    
-    // Check multiple system components
-    const results = await Promise.all([
-      supabase.from('users').select('count', { count: 'exact' }).limit(1),
-      supabase.from('error_logs').select('count', { count: 'exact' }).limit(1),
-      supabase.from('processed_posts').select('count', { count: 'exact' }).limit(1)
-    ]);
-
-    if (results.some(result => result.error)) {
-      throw new Error('One or more system checks failed');
-    }
-
-    const responseTime = Date.now() - startTime;
-    
-    if (responseTime < 300) return 100;
-    if (responseTime < 1000) return 90;
-    if (responseTime < 2000) return 80;
-    if (responseTime < 3000) return 60;
-    return 40;
-  } catch (error) {
-    console.error('System health check failed:', error);
-    return 0;
-  }
-}
-
-// Subscribe to health updates
-export async function* subscribeToHealth(signal: AbortSignal) {
-  while (!signal.aborted) {
-    const result = await getSystemHealth();
-    if (result.success && result.health) {
-      yield result.health;
-    }
-    await new Promise(resolve => setTimeout(resolve, 5000));
-  }
+// Calculate health score based on number of active alerts
+function calculateHealthScore(alertCount: number): number {
+  // Each alert reduces health by 10%
+  return Math.max(0, 100 - (alertCount * 10));
 }

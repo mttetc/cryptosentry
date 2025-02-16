@@ -53,16 +53,13 @@ export async function createTeam(prevState: TeamState, formData: FormData): Prom
   }
 }
 
-export async function inviteMember(
+export async function addMember(
   teamId: string,
-  prevState: TeamState,
-  formData: FormData
+  email: string,
+  role: 'admin' | 'member' | 'viewer'
 ): Promise<TeamState> {
   try {
-    const validatedFields = memberSchema.parse({
-      email: formData.get('email'),
-      role: formData.get('role'),
-    });
+    const validatedFields = memberSchema.parse({ email, role });
 
     const supabase = await createServerSupabaseClient();
     const {
@@ -73,42 +70,40 @@ export async function inviteMember(
       throw new Error('Unauthorized');
     }
 
-    // Check if user exists
-    const { data: user, error: userError } = await supabase
+    // Check if current user has permission
+    const { data: hasPermission } = await supabase.rpc('check_team_role', {
+      _team_id: teamId,
+      _user_id: session.user.id,
+      _required_role: 'admin',
+    });
+
+    if (!hasPermission) {
+      throw new Error('Insufficient permissions');
+    }
+
+    // Get user by email
+    const { data: user } = await supabase
       .from('users')
       .select('id')
       .eq('email', validatedFields.email)
       .single();
 
-    if (userError) {
-      // User doesn't exist, send invitation email
-      const { error: inviteError } = await supabase.auth.signInWithOtp({
-        email: validatedFields.email,
-        options: {
-          data: {
-            teamId,
-            role: validatedFields.role,
-            invitedBy: session.user.id,
-          },
-        },
-      });
-
-      if (inviteError) throw inviteError;
-    } else {
-      // User exists, add them to the team
-      const { error: memberError } = await supabase.from('team_members').insert({
-        team_id: teamId,
-        user_id: user.id,
-        role: validatedFields.role,
-      });
-
-      if (memberError) throw memberError;
+    if (!user) {
+      throw new Error('User not found');
     }
+
+    const { error } = await supabase.from('team_members').insert({
+      team_id: teamId,
+      user_id: user.id,
+      role: validatedFields.role,
+    });
+
+    if (error) throw error;
 
     return { success: true };
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : 'Failed to invite member',
+      error: error instanceof Error ? error.message : 'Failed to add member',
     };
   }
 }
@@ -189,45 +184,6 @@ export async function removeMember(teamId: string, userId: string): Promise<Team
   } catch (error) {
     return {
       error: error instanceof Error ? error.message : 'Failed to remove member',
-    };
-  }
-}
-
-export async function getUserTeams() {
-  try {
-    const supabase = await createServerSupabaseClient();
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    if (!session) {
-      throw new Error('Unauthorized');
-    }
-
-    // Get teams user owns
-    const { data: ownedTeams, error: ownedError } = await supabase
-      .from('teams')
-      .select('*, team_members(user_id, role)')
-      .eq('owner_id', session.user.id);
-
-    if (ownedError) throw ownedError;
-
-    // Get teams user is a member of
-    const { data: memberTeams, error: memberError } = await supabase
-      .from('team_members')
-      .select('teams(*, team_members(user_id, role)), role')
-      .eq('user_id', session.user.id);
-
-    if (memberError) throw memberError;
-
-    return {
-      success: true,
-      ownedTeams,
-      memberTeams: memberTeams.map((m) => ({ ...m.teams, userRole: m.role })),
-    };
-  } catch (error) {
-    return {
-      error: error instanceof Error ? error.message : 'Failed to fetch teams',
     };
   }
 }
