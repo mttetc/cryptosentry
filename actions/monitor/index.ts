@@ -4,15 +4,23 @@ import { WebSocket } from 'ws';
 import { createServerSupabaseClient } from '@/lib/supabase';
 import { monitorPrice, monitorSocial } from '@/actions/alerts';
 import { startPriceMonitoring, stopPriceMonitoring } from '@/actions/exchanges';
-import { startSocialMonitoring } from '@/actions/social';
+import { startSocialMonitoring, stopSocialMonitoring } from '@/actions/social';
 import { logError } from '@/lib/logger';
 import { cache } from 'react';
 import { experimental_taintObjectReference } from 'react';
-import { config } from './config';
+import { config } from '@/config/monitoring';
 import 'server-only';
 
 // Types
-type ExchangeType = 'binance' | 'coinbase' | 'kraken' | 'dex';
+interface MonitoringState {
+  isActive: boolean;
+  priceSocket: WebSocket | null;
+  socialSocket: WebSocket | null;
+  heartbeatInterval: NodeJS.Timeout | null;
+  socialHeartbeatInterval: NodeJS.Timeout | null;
+  lastError: Error | null;
+  startTime: number | null;
+}
 
 interface PriceCache {
   price: number;
@@ -20,35 +28,163 @@ interface PriceCache {
   percentageChange?: number;
 }
 
-interface Asset {
-  symbol: string;
-  condition: 'above' | 'below' | 'between' | 'change';
-  value: number;
-  value2?: number;
-  percentageChange?: number;
-  isReference?: boolean;
-}
-
-interface ConditionGroup {
-  assets: Asset[];
-  logicOperator: 'AND' | 'OR';
-}
-
-interface Exchange {
-  ws: WebSocket | null;
-  manager: WebSocketManager | null;
-  connect: () => Promise<void>;
-  disconnect: () => void;
-}
-
-// Cache and coverage tracking
-const priceCache = new Map<string, PriceCache>();
-const exchangeCoverage: Record<ExchangeType, Set<string>> = {
-  binance: new Set<string>(),
-  coinbase: new Set<string>(),
-  kraken: new Set<string>(),
-  dex: new Set<string>(),
+// Service state
+let state: MonitoringState = {
+  isActive: false,
+  priceSocket: null,
+  socialSocket: null,
+  heartbeatInterval: null,
+  socialHeartbeatInterval: null,
+  lastError: null,
+  startTime: null,
 };
+
+let initializationPromise: Promise<void> | null = null;
+
+// Cache for price monitoring
+const priceCache = new Map<string, PriceCache>();
+
+// Initialize the monitoring service
+export async function initialize(): Promise<void> {
+  if (initializationPromise) {
+    return initializationPromise;
+  }
+
+  initializationPromise = (async () => {
+    try {
+      // Initialize database connection
+      const supabase = await createServerSupabaseClient();
+      const { error } = await supabase.from('health_check').select('count');
+      if (error) throw error;
+
+      // Start price monitoring
+      await startPriceMonitoring();
+      const priceSocket = new WebSocket('wss://stream.binance.com:9443/ws');
+      
+      const heartbeatInterval = setInterval(() => {
+        if (priceSocket.readyState === WebSocket.OPEN) {
+          priceSocket.ping();
+        }
+      }, config.monitoring.websocket.pingInterval);
+
+      // Set up price socket reconnection
+      priceSocket.on('close', () => {
+        const backoff = Math.min(
+          config.monitoring.websocket.initialBackoff * 
+          Math.pow(config.monitoring.websocket.backoffMultiplier, 1),
+          config.monitoring.websocket.maxBackoff
+        );
+        setTimeout(async () => {
+          try {
+            await startPriceMonitoring();
+          } catch (error) {
+            logError('Failed to reconnect price monitoring:', error);
+          }
+        }, backoff);
+      });
+
+      // Start social monitoring
+      await startSocialMonitoring();
+      
+      if (!process.env.SOCIAL_STREAM_ENDPOINT) {
+        throw new Error('SOCIAL_STREAM_ENDPOINT not configured');
+      }
+
+      const socialSocket = new WebSocket(process.env.SOCIAL_STREAM_ENDPOINT);
+      
+      const socialHeartbeatInterval = setInterval(() => {
+        if (socialSocket.readyState === WebSocket.OPEN) {
+          socialSocket.ping();
+        }
+      }, config.monitoring.websocket.pingInterval);
+
+      // Set up social socket reconnection
+      socialSocket.on('close', () => {
+        const backoff = Math.min(
+          config.monitoring.websocket.initialBackoff * 
+          Math.pow(config.monitoring.websocket.backoffMultiplier, 1),
+          config.monitoring.websocket.maxBackoff
+        );
+        setTimeout(async () => {
+          try {
+            await startSocialMonitoring();
+          } catch (error) {
+            logError('Failed to reconnect social monitoring:', error);
+          }
+        }, backoff);
+      });
+
+      // Update state
+      state = {
+        isActive: true,
+        priceSocket,
+        socialSocket,
+        heartbeatInterval,
+        socialHeartbeatInterval,
+        lastError: null,
+        startTime: Date.now(),
+      };
+
+    } catch (error) {
+      state = {
+        ...state,
+        isActive: false,
+        lastError: error instanceof Error ? error : new Error('Unknown error'),
+      };
+      throw error;
+    }
+  })();
+
+  return initializationPromise;
+}
+
+// Clean up all resources
+export async function cleanup(): Promise<void> {
+  try {
+    // Stop monitoring services
+    await Promise.all([
+      stopPriceMonitoring(),
+      stopSocialMonitoring(),
+    ]);
+
+    // Clean up WebSocket connections
+    if (state.priceSocket) {
+      state.priceSocket.close();
+    }
+    if (state.socialSocket) {
+      state.socialSocket.close();
+    }
+
+    // Clear intervals
+    if (state.heartbeatInterval) {
+      clearInterval(state.heartbeatInterval);
+    }
+    if (state.socialHeartbeatInterval) {
+      clearInterval(state.socialHeartbeatInterval);
+    }
+
+  } catch (error) {
+    logError('Failed to cleanup monitoring service:', error);
+  } finally {
+    // Reset state
+    state = {
+      isActive: false,
+      priceSocket: null,
+      socialSocket: null,
+      heartbeatInterval: null,
+      socialHeartbeatInterval: null,
+      lastError: null,
+      startTime: null,
+    };
+    initializationPromise = null;
+  }
+}
+
+// Restart the service
+export async function restart(): Promise<void> {
+  await cleanup();
+  await initialize();
+}
 
 // Cache monitoring status checks
 export const getMonitoringStatus = cache(async () => {
@@ -71,9 +207,14 @@ export const getMonitoringStatus = cache(async () => {
 
   const status = {
     success: true,
-    status: isMonitoringActive ? 'active' : 'inactive',
-    priceMonitoring: !!priceSocket,
-    socialMonitoring: !!socialSocket
+    status: state.isActive ? 'active' : 'inactive',
+    startTime: state.startTime,
+    lastError: state.lastError?.message,
+    connections: {
+      priceMonitoring: !!state.priceSocket && state.priceSocket.readyState === WebSocket.OPEN,
+      socialMonitoring: !!state.socialSocket && state.socialSocket.readyState === WebSocket.OPEN,
+    },
+    uptime: state.startTime ? Date.now() - state.startTime : 0,
   };
 
   // Prevent sensitive monitoring data from being passed to client
@@ -124,184 +265,13 @@ export const preloadActiveAlerts = () => {
   void getActiveAlerts();
 };
 
-let isMonitoringActive = false;
-let priceSocket: WebSocket | null = null;
-let socialSocket: WebSocket | null = null;
-let heartbeatInterval: NodeJS.Timeout | null = null;
-let socialHeartbeatInterval: NodeJS.Timeout | null = null;
-
-// Initialize monitoring on server start
-if (!isMonitoringActive) {
-  isMonitoringActive = true;
-  startSocialMonitoring().catch(error => {
-    logError('Failed to start monitoring:', { error });
-    isMonitoringActive = false;
-  });
-}
-
-// WebSocket connection management
-class WebSocketManager {
-  private ws: WebSocket | null = null;
-  private pingInterval: NodeJS.Timeout | null = null;
-  private reconnectTimeout: NodeJS.Timeout | null = null;
-  private backoff = config.websocket.initialBackoff;
-  private attempts = 0;
-  private isReconnecting = false;
-  private lastPingTime = 0;
-
-  constructor(
-    private url: string,
-    private onMessage: (data: any) => void,
-    private onConnect?: () => void,
-    private onDisconnect?: () => void
-  ) {}
-
-  connect() {
-    if (this.ws?.readyState === WebSocket.OPEN) return;
-    if (this.isReconnecting) return;
-
-    try {
-      this.ws = new WebSocket(this.url);
-      this.setupEventHandlers();
-      this.startPingInterval();
-    } catch (error) {
-      console.error(`WebSocket connection error: ${error}`);
-      this.handleDisconnect();
-    }
-  }
-
-  private setupEventHandlers() {
-    if (!this.ws) return;
-
-    this.ws.on('open', () => {
-      console.log('WebSocket connected');
-      this.backoff = config.websocket.initialBackoff;
-      this.attempts = 0;
-      this.isReconnecting = false;
-      this.onConnect?.();
-    });
-
-    this.ws.on('message', (data) => {
-      try {
-        const parsed = JSON.parse(data.toString());
-        this.onMessage(parsed);
-      } catch (error) {
-        console.error('Error parsing WebSocket message:', error);
-      }
-    });
-
-    this.ws.on('pong', () => {
-      this.lastPingTime = Date.now();
-    });
-
-    this.ws.on('error', (error) => {
-      console.error('WebSocket error:', error);
-      this.handleDisconnect();
-    });
-
-    this.ws.on('close', () => {
-      console.log('WebSocket closed');
-      this.handleDisconnect();
-    });
-  }
-
-  private startPingInterval() {
-    this.stopPingInterval();
-    
-    this.pingInterval = setInterval(() => {
-      if (this.ws?.readyState === WebSocket.OPEN) {
-        this.lastPingTime = Date.now();
-        this.ws.ping();
-
-        // Check if we received a pong
-        setTimeout(() => {
-          if (Date.now() - this.lastPingTime >= config.websocket.pingTimeout) {
-            console.warn('Ping timeout, reconnecting...');
-            this.handleDisconnect();
-          }
-        }, config.websocket.pingTimeout);
-      }
-    }, config.websocket.pingInterval);
-  }
-
-  private stopPingInterval() {
-    if (this.pingInterval) {
-      clearInterval(this.pingInterval);
-      this.pingInterval = null;
-    }
-  }
-
-  private handleDisconnect() {
-    this.stopPingInterval();
-    
-    if (this.ws) {
-      this.ws.removeAllListeners();
-      this.ws.terminate();
-      this.ws = null;
-    }
-
-    this.onDisconnect?.();
-
-    if (this.attempts < config.websocket.reconnectAttempts) {
-      this.scheduleReconnect();
-    } else {
-      console.error('Max reconnection attempts reached');
-      this.isReconnecting = false;
-    }
-  }
-
-  private scheduleReconnect() {
-    if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
-    }
-
-    this.isReconnecting = true;
-    this.attempts++;
-
-    this.reconnectTimeout = setTimeout(() => {
-      console.log(`Attempting to reconnect (${this.attempts}/${config.websocket.reconnectAttempts})`);
-      this.connect();
-      this.backoff = Math.min(
-        this.backoff * config.websocket.backoffMultiplier,
-        config.websocket.maxBackoff
-      );
-    }, this.backoff);
-  }
-
-  disconnect() {
-    this.stopPingInterval();
-    
-    if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
-      this.reconnectTimeout = null;
-    }
-
-    if (this.ws) {
-      this.ws.removeAllListeners();
-      this.ws.terminate();
-      this.ws = null;
-    }
-
-    this.isReconnecting = false;
-    this.attempts = 0;
-  }
-
-  send(data: any) {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(data));
-    } else {
-      console.warn('WebSocket not connected, cannot send data');
-    }
-  }
-}
-
 // Update price cache and check conditions
 async function updatePriceCache(symbol: string, price: number) {
   const now = Date.now();
   const oldData = priceCache.get(symbol);
 
   let percentageChange: number | undefined;
-  if (oldData && now - oldData.timestamp <= config.cache.ttl) {
+  if (oldData && now - oldData.timestamp <= config.monitoring.cache.ttl) {
     percentageChange = ((price - oldData.price) / oldData.price) * 100;
   }
 
@@ -312,10 +282,10 @@ async function updatePriceCache(symbol: string, price: number) {
   });
 
   // Clean up old cache entries
-  if (priceCache.size > config.cache.maxSize) {
+  if (priceCache.size > config.monitoring.cache.maxSize) {
     const oldestEntries = Array.from(priceCache.entries())
       .sort(([, a], [, b]) => a.timestamp - b.timestamp)
-      .slice(0, config.cache.cleanupThreshold);
+      .slice(0, config.monitoring.cache.cleanupThreshold);
     
     priceCache.clear();
     oldestEntries.forEach(([key, value]) => priceCache.set(key, value));
@@ -325,197 +295,7 @@ async function updatePriceCache(symbol: string, price: number) {
   await monitorPrice(symbol, price);
 }
 
-// Get active conditions from database
-async function getActiveConditions(): Promise<ConditionGroup[] | null> {
-  try {
-    const supabase = await createServerSupabaseClient();
-    const { data: alerts } = await supabase
-      .from('price_alerts')
-      .select('*')
-      .eq('active', true)
-      .not('condition_type', 'is', null);
-
-    if (!alerts?.length) return null;
-
-    // Group alerts by their combined condition group
-    const groupedAlerts = alerts.reduce((groups: Record<string, any[]>, alert) => {
-      const groupId = alert.group_id || 'default';
-      if (!groups[groupId]) groups[groupId] = [];
-      groups[groupId].push(alert);
-      return groups;
-    }, {});
-
-    // Convert each group to a condition group
-    return Object.values(groupedAlerts).map((alerts) => ({
-      assets: alerts.map((alert) => ({
-        symbol: alert.symbol,
-        condition: alert.condition_type,
-        value: alert.target_price,
-        value2: alert.target_price_2,
-        percentageChange: alert.percentage_change,
-        isReference: alert.is_reference,
-      })),
-      logicOperator: alerts[0].logic_operator,
-    }));
-  } catch (error) {
-    console.error('Error fetching conditions:', error);
-    return null;
-  }
-}
-
-// Check combined conditions
-async function checkCombinedConditions(symbol: string, price: number, percentageChange?: number) {
-  const now = Date.now();
-
-  // Clean up old cache entries
-  Array.from(priceCache.entries()).forEach(([key, value]) => {
-    if (now - value.timestamp > config.cache.ttl) {
-      priceCache.delete(key);
-    }
-  });
-
-  // Update the cache for the current symbol
-  if (percentageChange !== undefined) {
-    const currentData = priceCache.get(symbol);
-    if (currentData) {
-      priceCache.set(symbol, {
-        ...currentData,
-        percentageChange,
-      });
-    }
-  }
-
-  // Get active conditions from database
-  const conditionGroups = await getActiveConditions();
-  if (!conditionGroups) return;
-
-  for (const conditions of conditionGroups) {
-    let groupConditionsMet = conditions.logicOperator === 'AND';
-
-    for (const asset of conditions.assets) {
-      const data = priceCache.get(asset.symbol);
-      if (!data) continue;
-
-      let conditionMet = false;
-
-      switch (asset.condition) {
-        case 'above':
-          conditionMet = data.price > asset.value;
-          break;
-        case 'below':
-          conditionMet = data.price < asset.value;
-          break;
-        case 'between':
-          conditionMet =
-            asset.value2 !== undefined && data.price >= asset.value && data.price <= asset.value2;
-          break;
-        case 'change':
-          if (data.percentageChange !== undefined && asset.percentageChange !== undefined) {
-            if (asset.isReference) {
-              // For reference asset, check if change is WITHIN the range
-              conditionMet = Math.abs(data.percentageChange) <= Math.abs(asset.percentageChange);
-            } else {
-              // For target assets, check if change meets the threshold
-              conditionMet = data.percentageChange >= asset.percentageChange;
-            }
-          }
-          break;
-      }
-
-      if (conditions.logicOperator === 'AND') {
-        if (!conditionMet) {
-          groupConditionsMet = false;
-          break;
-        }
-      } else if (conditionMet) {
-        groupConditionsMet = true;
-        break;
-      }
-    }
-
-    if (groupConditionsMet) {
-      await monitorPrice(symbol, price, {
-        type: 'combined',
-        conditions,
-        prices: Object.fromEntries(
-          Array.from(priceCache.entries()).map(([key, value]) => [
-            key,
-            { price: value.price, change: value.percentageChange },
-          ])
-        ),
-      });
-    }
-  }
-}
-
-export async function stopMonitoring() {
-  try {
-    isMonitoringActive = false;
-
-    // Stop price monitoring
-    await stopPriceMonitoring();
-
-    // Clear intervals
-    if (heartbeatInterval) {
-      clearInterval(heartbeatInterval);
-      heartbeatInterval = null;
-    }
-
-    if (socialHeartbeatInterval) {
-      clearInterval(socialHeartbeatInterval);
-      socialHeartbeatInterval = null;
-    }
-
-    // Close WebSocket connections
-    if (priceSocket) {
-      priceSocket.terminate();
-      priceSocket = null;
-    }
-
-    if (socialSocket) {
-      socialSocket.terminate();
-      socialSocket = null;
-    }
-
-    return { success: true };
-  } catch (error) {
-    console.error('Error stopping monitoring:', error);
-    return { error: 'Failed to stop monitoring' };
-  }
-}
-
-export async function checkHealth() {
-  try {
-    const supabase = await createServerSupabaseClient();
-    
-    // Check database connection
-    const { data, error } = await supabase
-      .from('price_alerts')
-      .select('count', { count: 'exact' })
-      .limit(1);
-
-    if (error) throw error;
-
-    // Check WebSocket connections
-    const wsStatus = {
-      price: priceSocket?.readyState === WebSocket.OPEN,
-      social: socialSocket?.readyState === WebSocket.OPEN,
-    };
-
-    // Check cache health
-    const cacheStatus = {
-      size: priceCache.size,
-      utilization: (priceCache.size / config.cache.maxSize) * 100,
-    };
-
-    return {
-      success: true,
-      database: true,
-      websockets: wsStatus,
-      cache: cacheStatus,
-    };
-  } catch (error) {
-    console.error('Health check failed:', error);
-    return { success: false, error: 'Health check failed' };
-  }
-} 
+// Initialize monitoring on server start
+initialize().catch(error => {
+  logError('Failed to start monitoring:', { error });
+}); 
