@@ -1,6 +1,9 @@
 'use server';
 
 import { createServerSupabaseClient } from '@/lib/supabase';
+import { experimental_taintObjectReference } from 'react';
+import { unstable_cache } from 'next/cache';
+import { cache } from 'react';
 
 type MetricType = 'latency' | 'uptime' | 'error' | 'processing';
 type ServiceType = 'price' | 'social' | 'calls' | 'system';
@@ -32,82 +35,164 @@ export async function trackMetric(metric: Metric) {
   }
 }
 
-// Get system health status
-export async function getSystemHealth() {
+// Types
+export interface HealthScore {
+  price: number;
+  social: number;
+  calls: number;
+  system: number;
+}
+
+export interface HealthResponse {
+  success: boolean;
+  health?: HealthScore;
+  error?: string;
+}
+
+// Cache health check results
+export const getSystemHealth = cache(async (): Promise<HealthResponse> => {
   try {
-    const supabase = await createServerSupabaseClient();
-    const now = new Date();
-    const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+    const [priceHealth, socialHealth, callsHealth, systemHealth] = await Promise.all([
+      checkPriceServiceHealth(),
+      checkSocialServiceHealth(),
+      checkCallServiceHealth(),
+      checkSystemHealth(),
+    ]);
 
-    // Get recent metrics
-    const { data: metrics } = await supabase
-      .from('system_metrics')
-      .select('*')
-      .gte('created_at', fiveMinutesAgo.toISOString())
-      .order('created_at', { ascending: false });
-
-    if (!metrics) return { error: 'No metrics found' };
-
-    // Calculate health scores
-    const health: Record<ServiceType, number> = {
-      price: calculateServiceHealth(metrics.filter((m) => m.service === 'price')),
-      social: calculateServiceHealth(metrics.filter((m) => m.service === 'social')),
-      calls: calculateServiceHealth(metrics.filter((m) => m.service === 'calls')),
-      system: calculateServiceHealth(metrics.filter((m) => m.service === 'system')),
+    const health = {
+      price: priceHealth,
+      social: socialHealth,
+      calls: callsHealth,
+      system: systemHealth,
     };
+
+    // Prevent sensitive metrics from being exposed
+    experimental_taintObjectReference(
+      'Do not pass internal health metrics to client',
+      health
+    );
 
     return { success: true, health };
   } catch (error) {
     console.error('Error getting system health:', error);
-    return { error: 'Failed to get system health' };
+    return { success: false, error: 'Failed to get system health' };
+  }
+});
+
+// Health check functions
+async function checkPriceServiceHealth(): Promise<number> {
+  const supabase = await createServerSupabaseClient();
+  
+  try {
+    const startTime = Date.now();
+    const { data, error } = await supabase
+      .from('price_alerts')
+      .select('count', { count: 'exact' })
+      .limit(1);
+
+    if (error) throw error;
+
+    const responseTime = Date.now() - startTime;
+    
+    if (responseTime < 100) return 100;
+    if (responseTime < 500) return 90;
+    if (responseTime < 1000) return 80;
+    if (responseTime < 2000) return 60;
+    return 40;
+  } catch (error) {
+    console.error('Price service health check failed:', error);
+    return 0;
   }
 }
 
-// Calculate service health score (0-100)
-function calculateServiceHealth(metrics: any[]) {
-  if (!metrics.length) return 0;
+async function checkSocialServiceHealth(): Promise<number> {
+  const supabase = await createServerSupabaseClient();
+  
+  try {
+    const startTime = Date.now();
+    const { data, error } = await supabase
+      .from('social_alerts')
+      .select('count', { count: 'exact' })
+      .limit(1);
 
-  const weights: Record<MetricType, number> = {
-    latency: 0.3,
-    uptime: 0.4,
-    error: 0.2,
-    processing: 0.1,
-  };
+    if (error) throw error;
 
-  const scores: Record<MetricType, number> = {
-    latency: calculateLatencyScore(metrics.filter((m) => m.metric_type === 'latency')),
-    uptime: calculateUptimeScore(metrics.filter((m) => m.metric_type === 'uptime')),
-    error: calculateErrorScore(metrics.filter((m) => m.metric_type === 'error')),
-    processing: calculateProcessingScore(metrics.filter((m) => m.metric_type === 'processing')),
-  };
-
-  return Object.entries(weights).reduce((score, [key, weight]) => {
-    return score + scores[key as MetricType] * weight;
-  }, 0);
+    const responseTime = Date.now() - startTime;
+    
+    if (responseTime < 100) return 100;
+    if (responseTime < 500) return 90;
+    if (responseTime < 1000) return 80;
+    if (responseTime < 2000) return 60;
+    return 40;
+  } catch (error) {
+    console.error('Social service health check failed:', error);
+    return 0;
+  }
 }
 
-function calculateLatencyScore(metrics: any[]) {
-  if (!metrics.length) return 100;
-  const avgLatency = metrics.reduce((sum, m) => sum + m.value, 0) / metrics.length;
-  // Score decreases as latency increases (target: <100ms)
-  return Math.max(0, 100 - avgLatency / 2);
+async function checkCallServiceHealth(): Promise<number> {
+  const supabase = await createServerSupabaseClient();
+  
+  try {
+    const startTime = Date.now();
+    const { data, error } = await supabase
+      .from('alert_history')
+      .select('count', { count: 'exact' })
+      .eq('alert_type', 'call')
+      .limit(1);
+
+    if (error) throw error;
+
+    const responseTime = Date.now() - startTime;
+    
+    if (responseTime < 100) return 100;
+    if (responseTime < 500) return 90;
+    if (responseTime < 1000) return 80;
+    if (responseTime < 2000) return 60;
+    return 40;
+  } catch (error) {
+    console.error('Call service health check failed:', error);
+    return 0;
+  }
 }
 
-function calculateUptimeScore(metrics: any[]) {
-  if (!metrics.length) return 0;
-  const uptime = metrics.filter((m) => m.value === 1).length / metrics.length;
-  return uptime * 100;
+async function checkSystemHealth(): Promise<number> {
+  const supabase = await createServerSupabaseClient();
+  
+  try {
+    const startTime = Date.now();
+    
+    // Check multiple system components
+    const results = await Promise.all([
+      supabase.from('users').select('count', { count: 'exact' }).limit(1),
+      supabase.from('error_logs').select('count', { count: 'exact' }).limit(1),
+      supabase.from('processed_posts').select('count', { count: 'exact' }).limit(1)
+    ]);
+
+    if (results.some(result => result.error)) {
+      throw new Error('One or more system checks failed');
+    }
+
+    const responseTime = Date.now() - startTime;
+    
+    if (responseTime < 300) return 100;
+    if (responseTime < 1000) return 90;
+    if (responseTime < 2000) return 80;
+    if (responseTime < 3000) return 60;
+    return 40;
+  } catch (error) {
+    console.error('System health check failed:', error);
+    return 0;
+  }
 }
 
-function calculateErrorScore(metrics: any[]) {
-  if (!metrics.length) return 100;
-  const errorRate = metrics.filter((m) => m.value === 1).length / metrics.length;
-  return (1 - errorRate) * 100;
-}
-
-function calculateProcessingScore(metrics: any[]) {
-  if (!metrics.length) return 100;
-  const avgProcessing = metrics.reduce((sum, m) => sum + m.value, 0) / metrics.length;
-  // Score decreases as processing time increases (target: <50ms)
-  return Math.max(0, 100 - avgProcessing);
+// Subscribe to health updates
+export async function* subscribeToHealth(signal: AbortSignal) {
+  while (!signal.aborted) {
+    const result = await getSystemHealth();
+    if (result.success && result.health) {
+      yield result.health;
+    }
+    await new Promise(resolve => setTimeout(resolve, 5000));
+  }
 }

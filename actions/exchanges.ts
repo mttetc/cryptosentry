@@ -366,7 +366,10 @@ async function updatePriceCache(symbol: string, price: number, change24h?: numbe
     percentageChange: change24h || percentageChange,
   });
 
-  // Check for combined conditions
+  // Monitor price for basic alerts
+  await monitorPrice(symbol, price);
+
+  // Check for combined conditions separately
   await checkCombinedConditions(symbol, price, percentageChange);
 }
 

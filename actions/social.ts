@@ -1,20 +1,105 @@
 'use server';
 
-import { TwitterApi, UserV2 } from 'twitter-api-v2';
+import Parser from 'rss-parser';
 import { createServerSupabaseClient } from '@/lib/supabase';
-import { monitorSocial } from '@/actions/alerts';
-import { WebSocket } from 'ws';
+import { monitorSocial } from '@/actions/monitoring/alerts';
 
-const twitterClient = new TwitterApi(process.env.TWITTER_BEARER_TOKEN!);
+const parser = new Parser({
+  headers: {
+    'User-Agent': 'Mozilla/5.0 (compatible; CryptoAlertBot/1.0)',
+  },
+});
 
-// Keep track of WebSocket connections
-const connections = new Map<string, WebSocket>();
-const reconnectDelays = new Map<string, number>();
-const MAX_RECONNECT_DELAY = 60000; // 1 minute
-const INITIAL_RECONNECT_DELAY = 1000; // 1 second
+const MAX_CACHE_SIZE = 1000;
+const CACHE_CLEANUP_THRESHOLD = 800;
+
+// Keep track of last seen post IDs with timestamps
+const lastSeenPosts = new Map<string, Map<string, number>>();
+
+// Get a working Nitter instance with retry
+async function getWorkingInstance(): Promise<string> {
+  const instances = (process.env.NITTER_INSTANCES || 'nitter.net').split(',');
+  const errors: string[] = [];
+  
+  for (const instance of instances) {
+    try {
+      const response = await fetch(`https://${instance}/`, {
+        method: 'HEAD',
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CryptoAlertBot/1.0)' },
+        // Add timeout
+        signal: AbortSignal.timeout(5000),
+      });
+      if (response.ok) return instance.trim();
+    } catch (error) {
+      errors.push(`${instance}: ${error}`);
+      console.warn(`Nitter instance ${instance} is down:`, error);
+    }
+  }
+  
+  throw new Error(`No working Nitter instance found. Errors: ${errors.join(', ')}`);
+}
+
+// Load last processed posts from database
+async function loadLastProcessedPosts(): Promise<void> {
+  const supabase = await createServerSupabaseClient();
+  const { data: posts } = await supabase
+    .from('processed_posts')
+    .select('account, post_id, processed_at')
+    .gte('processed_at', new Date(Date.now() - 86400000).toISOString()); // Last 24h
+
+  if (posts) {
+    posts.forEach(({ account, post_id, processed_at }) => {
+      if (!lastSeenPosts.has(account)) {
+        lastSeenPosts.set(account, new Map());
+      }
+      lastSeenPosts.get(account)?.set(post_id, new Date(processed_at).getTime());
+    });
+  }
+}
+
+// Save processed post to database
+async function saveProcessedPost(account: string, postId: string): Promise<void> {
+  const supabase = await createServerSupabaseClient();
+  await supabase.from('processed_posts').insert({
+    account,
+    post_id: postId,
+    processed_at: new Date().toISOString(),
+  });
+}
+
+// Clean up old entries from cache and database
+async function cleanupOldPosts(): Promise<void> {
+  const now = Date.now();
+  const oneDayAgo = now - 86400000;
+
+  // Clean up memory cache
+  for (const [account, posts] of lastSeenPosts.entries()) {
+    // Remove old entries
+    for (const [postId, timestamp] of posts.entries()) {
+      if (timestamp < oneDayAgo) {
+        posts.delete(postId);
+      }
+    }
+
+    // If map is empty, remove the account
+    if (posts.size === 0) {
+      lastSeenPosts.delete(account);
+    }
+  }
+
+  // Clean up database
+  const supabase = await createServerSupabaseClient();
+  await supabase
+    .from('processed_posts')
+    .delete()
+    .lt('processed_at', new Date(oneDayAgo).toISOString());
+}
 
 export async function startSocialMonitoring() {
   try {
+    // Load last processed posts on startup
+    await loadLastProcessedPosts();
+
     const supabase = await createServerSupabaseClient();
 
     // Fetch all active social alerts
@@ -25,121 +110,87 @@ export async function startSocialMonitoring() {
 
     if (!socialAlerts?.length) return { success: true };
 
-    // Get unique accounts and keywords
-    const accounts = [...new Set(socialAlerts.map((alert) => alert.account))];
-    const keywords = [...new Set(socialAlerts.flatMap((alert) => alert.keywords))];
-
-    // Create rules for the filtered stream
-    const rules = [
-      ...accounts.map((account) => ({ value: `from:${account}`, tag: `account:${account}` })),
-      ...keywords.map((keyword) => ({ value: keyword, tag: `keyword:${keyword}` })),
-    ];
-
-    // Set up stream rules with error handling and retries
-    let retries = 3;
-    while (retries > 0) {
+    // Get unique accounts to monitor
+    const accounts = [...new Set(socialAlerts.map(alert => alert.account))];
+    
+    // Get a working Nitter instance
+    const instance = await getWorkingInstance();
+    
+    // Monitor each account's RSS feed
+    for (const account of accounts) {
       try {
-        const currentRules = await twitterClient.v2.streamRules();
-        if (currentRules.data?.length) {
-          await twitterClient.v2.updateStreamRules({
-            delete: { ids: currentRules.data.map((rule) => rule.id) },
-          });
+        const feed = await parser.parseURL(`https://${instance}/${account}/rss`);
+        
+        // Initialize last seen posts for this account if needed
+        if (!lastSeenPosts.has(account)) {
+          lastSeenPosts.set(account, new Map());
         }
-        await twitterClient.v2.updateStreamRules({ add: rules });
-        break;
+        
+        const accountPosts = lastSeenPosts.get(account)!;
+        
+        // Process new posts
+        for (const item of feed.items) {
+          const postId = item.guid || item.link;
+          if (postId && !accountPosts.has(postId)) {
+            // Process the post content
+            await monitorSocial(account, item.content || item.title || '');
+            
+            // Save to memory and database
+            accountPosts.set(postId, Date.now());
+            await saveProcessedPost(account, postId);
+
+            // Clean up if too many entries
+            if (accountPosts.size > MAX_CACHE_SIZE) {
+              const oldestPosts = Array.from(accountPosts.entries())
+                .sort(([, a], [, b]) => a - b)
+                .slice(0, CACHE_CLEANUP_THRESHOLD);
+              accountPosts.clear();
+              oldestPosts.forEach(([id, time]) => accountPosts.set(id, time));
+            }
+          }
+        }
       } catch (error) {
-        console.error(`Error setting up stream rules (${retries} retries left):`, error);
-        retries--;
-        if (retries === 0) throw error;
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        console.error(`Error monitoring account ${account}:`, error);
       }
     }
 
-    // Start filtered stream with enhanced error handling
-    const stream = await twitterClient.v2.searchStream({
-      'tweet.fields': ['author_id', 'created_at', 'text'],
-      expansions: ['author_id'],
-      'user.fields': ['username', 'verified'],
-    });
+    // Clean up old posts periodically
+    await cleanupOldPosts();
 
-    let messageCount = 0;
-    let startTime = Date.now();
-
-    stream.on('data', async (tweet) => {
-      messageCount++;
-      const now = Date.now();
-      const elapsed = now - startTime;
-
-      if (elapsed >= 60000) {
-        // Log stats every minute
-        console.log(`Processing ${messageCount} tweets per minute`);
-        messageCount = 0;
-        startTime = now;
-      }
-
-      const processingStart = performance.now();
-      const author = tweet.includes?.users?.find((u: UserV2) => u.id === tweet.data.author_id);
-
-      if (author) {
-        await monitorSocial(author.username, tweet.data.text);
-
-        // Log processing time if it exceeds 100ms
-        const processingTime = performance.now() - processingStart;
-        if (processingTime > 100) {
-          console.warn(`Long processing time for tweet: ${processingTime}ms`);
-        }
-      }
-    });
-
-    // Enhanced error handling with exponential backoff
-    stream.on('error', (error) => {
-      console.error('Stream error:', error);
-
-      const reconnect = async () => {
-        const currentDelay = reconnectDelays.get('twitter') || INITIAL_RECONNECT_DELAY;
-        await new Promise((resolve) => setTimeout(resolve, currentDelay));
-
-        // Exponential backoff with max delay
-        const nextDelay = Math.min(currentDelay * 2, MAX_RECONNECT_DELAY);
-        reconnectDelays.set('twitter', nextDelay);
-
-        startSocialMonitoring().catch(console.error);
-      };
-
-      reconnect();
-    });
-
-    // Monitor stream connection
-    stream.on('end', () => {
-      console.warn('Stream ended, reconnecting...');
-      clearInterval(heartbeat);
-      startSocialMonitoring().catch(console.error);
-    });
-
-    const heartbeat = setInterval(() => {
-      // Just keep the interval running to prevent garbage collection
-    }, 30000);
+    // Schedule next check
+    setTimeout(
+      startSocialMonitoring,
+      parseInt(process.env.FETCH_INTERVAL || '60') * 1000
+    );
 
     return { success: true };
   } catch (error) {
-    console.error('Error starting social monitoring:', error);
-    return { error: 'Failed to start social monitoring' };
+    console.error('Error in social monitoring:', error);
+    
+    // Retry after a delay
+    setTimeout(
+      startSocialMonitoring,
+      parseInt(process.env.FETCH_INTERVAL || '60') * 1000
+    );
+    
+    return { error: 'Failed to monitor social feeds' };
   }
 }
 
-// Function to stop social monitoring
 export async function stopSocialMonitoring() {
-  try {
-    // Clean up all WebSocket connections
-    for (const [key, ws] of connections.entries()) {
-      ws.close();
-      connections.delete(key);
-      reconnectDelays.delete(key);
+  // Save current state before stopping
+  const supabase = await createServerSupabaseClient();
+  
+  for (const [account, posts] of lastSeenPosts.entries()) {
+    for (const [postId, timestamp] of posts.entries()) {
+      await supabase.from('processed_posts').upsert({
+        account,
+        post_id: postId,
+        processed_at: new Date(timestamp).toISOString(),
+      });
     }
-
-    return { success: true };
-  } catch (error) {
-    console.error('Error stopping social monitoring:', error);
-    return { error: 'Failed to stop social monitoring' };
   }
+  
+  lastSeenPosts.clear();
+  return { success: true };
 }
