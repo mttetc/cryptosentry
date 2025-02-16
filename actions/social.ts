@@ -2,7 +2,7 @@
 
 import Parser from 'rss-parser';
 import { createServerSupabaseClient } from '@/lib/supabase';
-import { monitorSocial } from '@/actions/monitoring/alerts';
+import { monitorSocial } from '@/actions/alerts';
 
 const parser = new Parser({
   headers: {
