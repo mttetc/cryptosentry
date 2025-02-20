@@ -1,7 +1,7 @@
 'use server';
 
 import { createServerSupabaseClient } from '@/lib/supabase';
-import { SETTINGS } from './config';
+import { SUBSCRIPTION_TIERS, SubscriptionTier } from './config';
 
 export interface UsageLimits {
   count: number;
@@ -17,6 +17,17 @@ export interface UsageLimits {
   riskScore: number;
 }
 
+async function getUserSubscriptionTier(userId: string): Promise<SubscriptionTier> {
+  const supabase = await createServerSupabaseClient();
+  const { data: subscription } = await supabase
+    .from('subscriptions')
+    .select('tier')
+    .eq('user_id', userId)
+    .single();
+
+  return (subscription?.tier || 'BASIC') as SubscriptionTier;
+}
+
 export async function getUsageLimits(
   userId: string,
   phone: string,
@@ -24,6 +35,10 @@ export async function getUsageLimits(
 ): Promise<UsageLimits> {
   const supabase = await createServerSupabaseClient();
   const today = new Date().toISOString().split('T')[0];
+  
+  // Get user's subscription tier
+  const tier = await getUserSubscriptionTier(userId);
+  const limits = SUBSCRIPTION_TIERS[tier].limits;
   
   // Get security status first
   const { data: security } = await supabase
@@ -66,7 +81,7 @@ export async function getUsageLimits(
     return {
       count: 0,
       lastUsedAt: null,
-      remainingToday: type === 'call' ? SETTINGS.CALL.LIMITS.DAILY : SETTINGS.SMS.LIMITS.DAILY,
+      remainingToday: type === 'call' ? limits.calls.daily : limits.sms.daily,
       isInCooldown: false,
       cooldownRemaining: 0,
       isRateLimited: false,
@@ -78,22 +93,20 @@ export async function getUsageLimits(
 
   const count = type === 'call' ? usage.call_count : usage.sms_count;
   const lastUsedAt = type === 'call' ? usage.last_call_at : usage.last_sms_at;
-  const limit = type === 'call' ? SETTINGS.CALL.LIMITS.DAILY : SETTINGS.SMS.LIMITS.DAILY;
-  const cooldownDuration = type === 'call' 
-    ? SETTINGS.CALL.COOLDOWN.DURATION 
-    : SETTINGS.SMS.COOLDOWN.DURATION;
+  const dailyLimit = type === 'call' ? limits.calls.daily : limits.sms.daily;
+  const perMinuteLimit = type === 'call' ? limits.calls.perMinute : limits.sms.perMinute;
 
   const now = new Date();
+  const cooldownDuration = 60; // 1 minute cooldown for both types
   const cooldownRemaining = lastUsedAt 
     ? Math.max(0, cooldownDuration - Math.floor((now.getTime() - new Date(lastUsedAt).getTime()) / 1000))
     : 0;
 
   // Check rate limits
   const timestamps = type === 'call' ? usage.calls_last_minute : usage.sms_last_minute;
-  const maxPerMinute = type === 'call' ? SETTINGS.CALL.LIMITS.PER_MINUTE : SETTINGS.SMS.LIMITS.PER_MINUTE;
   const currentTime = Math.floor(now.getTime() / 1000);
   const recentTimestamps = (timestamps || []).filter((ts: number) => ts > currentTime - 60);
-  const isRateLimited = recentTimestamps.length >= maxPerMinute;
+  const isRateLimited = recentTimestamps.length >= perMinuteLimit;
   const rateLimitReset = isRateLimited ? Math.max(...recentTimestamps) + 60 - currentTime : 0;
 
   const isBlocked = security?.blocked_until && new Date(security.blocked_until) > now;
@@ -104,7 +117,7 @@ export async function getUsageLimits(
   return {
     count,
     lastUsedAt: lastUsedAt ? new Date(lastUsedAt) : null,
-    remainingToday: Math.max(0, limit - count),
+    remainingToday: Math.max(0, dailyLimit - count),
     isInCooldown: cooldownRemaining > 0,
     cooldownRemaining,
     isRateLimited,

@@ -10,24 +10,26 @@ import { useToast } from '@/hooks/use-toast';
 import { updateUserPreferences } from '@/actions/user';
 import { Skeleton } from '@/components/ui/skeleton';
 
-interface UserPreferences {
+interface NotificationPreferences {
+  phone: string;
+  prefer_sms: boolean;
   active_24h: boolean;
   quiet_hours_start: string | null;
   quiet_hours_end: string | null;
   weekends_enabled: boolean;
-  prefer_sms: boolean;
 }
 
-const DEFAULT_PREFERENCES: UserPreferences = {
+const DEFAULT_PREFERENCES: NotificationPreferences = {
+  phone: '',
+  prefer_sms: false,
   active_24h: true,
   quiet_hours_start: null,
   quiet_hours_end: null,
   weekends_enabled: true,
-  prefer_sms: false,
 };
 
 export function UserPreferences() {
-  const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_PREFERENCES);
+  const [preferences, setPreferences] = useState<NotificationPreferences>(DEFAULT_PREFERENCES);
   const [isPending, setIsPending] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
@@ -35,7 +37,7 @@ export function UserPreferences() {
   useEffect(() => {
     async function fetchPreferences() {
       try {
-        const response = await fetch('/api/user/preferences');
+        const response = await fetch('/api/user/notification-settings');
         if (!response.ok) {
           throw new Error('Failed to fetch preferences');
         }
@@ -66,7 +68,7 @@ export function UserPreferences() {
 
       toast({
         title: 'Success',
-        description: 'Your preferences have been updated.',
+        description: 'Your notification preferences have been updated.',
       });
     } catch (error) {
       toast({

@@ -7,17 +7,19 @@ const configSchema = z.object({
     maxRetries: z.number().min(1).default(3),
     backoffMultiplier: z.number().min(1).default(1.5),
   }),
+  monitoring: z.object({
+    priceCheck: z.object({
+      interval: z.number().min(1000).default(60000),
+      batchSize: z.number().min(1).default(50),
+    }),
+    socialCheck: z.object({
+      interval: z.number().min(1000).default(300000),
+      batchSize: z.number().min(1).default(20),
+    }),
+  }),
   cache: z.object({
     ttl: z.number().min(1000).default(60000),
     maxSize: z.number().min(100).default(1000),
-    cleanupThreshold: z.number().min(100).default(800),
-  }),
-  exchanges: z.object({
-    endpoints: z.object({
-      binance: z.string().url(),
-      coinbase: z.string().url(),
-      kraken: z.string().url(),
-    }),
   }),
 });
 
@@ -29,17 +31,19 @@ function loadConfig() {
       maxRetries: Number(process.env.SSE_MAX_RETRIES) || 3,
       backoffMultiplier: Number(process.env.SSE_BACKOFF_MULTIPLIER) || 1.5,
     },
+    monitoring: {
+      priceCheck: {
+        interval: Number(process.env.PRICE_CHECK_INTERVAL) || 60000,
+        batchSize: Number(process.env.PRICE_CHECK_BATCH_SIZE) || 50,
+      },
+      socialCheck: {
+        interval: Number(process.env.SOCIAL_CHECK_INTERVAL) || 300000,
+        batchSize: Number(process.env.SOCIAL_CHECK_BATCH_SIZE) || 20,
+      },
+    },
     cache: {
       ttl: Number(process.env.CACHE_TTL) || 60000,
       maxSize: Number(process.env.MAX_CACHE_SIZE) || 1000,
-      cleanupThreshold: Number(process.env.CACHE_CLEANUP_THRESHOLD) || 800,
-    },
-    exchanges: {
-      endpoints: {
-        binance: process.env.BINANCE_ENDPOINT || 'https://api.binance.com/api/v3',
-        coinbase: process.env.COINBASE_ENDPOINT || 'https://api.coinbase.com/v2',
-        kraken: process.env.KRAKEN_ENDPOINT || 'https://api.kraken.com/0/public',
-      },
     },
   };
 

@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { monitorPrice } from "@/actions/alerts";
 import { createServerSupabaseClient } from "@/lib/supabase";
-import { config } from "@/actions/monitor/config";
+import { config } from "@/actions/messaging/config";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
-// Keep track of active connections with their cleanup functions
+// Keep track of active connections
 const CONNECTIONS = new Map<string, {
   controller: ReadableStreamController<any>;
   intervals: NodeJS.Timeout[];
@@ -22,10 +21,10 @@ export async function GET(request: NextRequest) {
     const { data: { session } } = await supabase.auth.getSession();
 
     if (!session?.user.id) {
-      return new NextResponse(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-      });
+      return new NextResponse(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401 }
+      );
     }
 
     const connectionId = crypto.randomUUID();
@@ -41,7 +40,10 @@ export async function GET(request: NextRequest) {
           });
 
           // Send initial connection message
-          controller.enqueue(encodeSSE("init", { status: "connected", connectionId }));
+          controller.enqueue(encodeSSE("init", { 
+            status: "connected", 
+            connectionId 
+          }));
 
           // Set up price monitoring
           const priceMonitoring = async () => {
@@ -165,21 +167,17 @@ export async function GET(request: NextRequest) {
 
     return new NextResponse(stream, {
       headers: {
-        "Access-Control-Allow-Origin": "*",
+        "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache, no-transform",
         "Connection": "keep-alive",
-        "Content-Type": "text/event-stream",
-        "X-Accel-Buffering": "no", // Disable buffering in Nginx
+        "X-Accel-Buffering": "no",
       },
     });
   } catch (error) {
     console.error("Server error:", error);
     return new NextResponse(
       JSON.stringify({ error: "Internal Server Error" }),
-      {
-        headers: { "Content-Type": "application/json" },
-        status: 500,
-      }
+      { status: 500 }
     );
   }
 }
@@ -199,12 +197,9 @@ function cleanup(connectionId: string) {
 
 /**
  * Helper function to format Server-Sent Events (SSE) messages
- * @param event - Event name
- * @param data - Data payload
- * @returns Encoded SSE string
  */
 function encodeSSE(event: string, data: any): Uint8Array {
   return new TextEncoder().encode(
     `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`
   );
-}
+} 

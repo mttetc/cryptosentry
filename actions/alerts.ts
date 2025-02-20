@@ -22,38 +22,31 @@ const socialAlertSchema = z.object({
 // Types
 // ----------------------------------------
 
-type PriceAlert = {
-  id: string;
-  user_id: string;
+export type AlertCondition = 'above' | 'below' | 'between' | 'change';
+export type LogicOperator = 'AND' | 'OR';
+
+export interface AssetCondition {
   symbol: string;
-  target_price: number;
-  active: boolean;
-  created_at: string;
-  users?: {
-    id: string;
-    phone: string;
-    prefer_sms: boolean;
-  };
-};
+  condition: AlertCondition;
+  value: number;
+  value2?: number;
+  percentageChange?: number;
+  isReference?: boolean;
+}
 
-type SocialAlert = {
-  id: string;
-  user_id: string;
-  account: string;
-  keywords: string[];
-  active: boolean;
-  created_at: string;
-  users?: {
-    id: string;
-    phone: string;
-    prefer_sms: boolean;
+export interface CombinedCondition {
+  type: 'combined';
+  conditions: {
+    assets: AssetCondition[];
+    logicOperator: LogicOperator;
   };
-};
+  prices: Record<string, { price: number; change?: number }>;
+}
 
-export type AlertFormState = {
+export interface AlertFormState {
   error: string;
   success: boolean;
-};
+}
 
 // Form State
 // ----------------------------------------
@@ -165,9 +158,14 @@ export async function createPriceAlertAction(
       return { error: 'Please fill in all fields', success: false };
     }
 
+    const price = parseFloat(String(targetPrice));
+    if (isNaN(price) || price <= 0) {
+      return { error: 'Invalid price value', success: false };
+    }
+
     await createPriceAlert({ 
-      symbol: String(symbol), 
-      targetPrice: parseFloat(String(targetPrice)) 
+      symbol: String(symbol).toUpperCase(), 
+      targetPrice: price
     });
     
     return { success: true, error: '' };
@@ -191,12 +189,18 @@ export async function createSocialAlertAction(
       return { error: 'Please fill in all fields', success: false };
     }
 
+    const cleanedKeywords = String(keywords)
+      .split(',')
+      .map(k => k.trim())
+      .filter(Boolean);
+
+    if (cleanedKeywords.length === 0) {
+      return { error: 'Please provide at least one keyword', success: false };
+    }
+
     await createSocialAlert({ 
-      account: String(account),
-      keywords: String(keywords)
-        .split(',')
-        .map(k => k.trim())
-        .filter(Boolean)
+      account: String(account).toLowerCase().replace(/^@/, ''),
+      keywords: cleanedKeywords
     });
     
     return { success: true, error: '' };
@@ -214,112 +218,147 @@ export async function createSocialAlertAction(
 export async function monitorPrice(
   symbol: string, 
   currentPrice: number,
-  combinedCondition?: {
-    type: 'combined';
-    conditions: {
-      assets: Array<{
-        symbol: string;
-        condition: 'above' | 'below' | 'between' | 'change';
-        value: number;
-        value2?: number;
-        percentageChange?: number;
-        isReference?: boolean;
-      }>;
-      logicOperator: 'AND' | 'OR';
-    };
-    prices: Record<string, { price: number; change?: number }>;
-  }
+  combinedCondition?: CombinedCondition
 ) {
-  const supabase = await createServerSupabaseClient();
-  
-  // Get all active alerts for this symbol
-  const { data: alerts } = await supabase
-    .from('price_alerts')
-    .select('*, users!inner(id, phone, prefer_sms)')
-    .eq('symbol', symbol)
-    .eq('active', true);
+  try {
+    if (!symbol || typeof currentPrice !== 'number' || currentPrice <= 0) {
+      throw new Error('Invalid price monitoring parameters');
+    }
 
-  if (!alerts?.length) return;
+    const supabase = await createServerSupabaseClient();
+    
+    // Get active alerts first
+    const { data: alerts, error: alertsError } = await supabase
+      .from('price_alerts')
+      .select('id, target_price, user_id')
+      .eq('symbol', symbol.toUpperCase())
+      .eq('active', true);
 
-  // Check each alert
-  for (const alert of alerts) {
-    if (currentPrice >= alert.target_price) {
-      try {
-        let message: string;
-        
-        if (combinedCondition) {
-          const conditions = combinedCondition.conditions.assets
-            .map((asset) => {
-              const priceInfo = combinedCondition.prices[asset.symbol];
-              if (!priceInfo) return '';
+    if (alertsError) throw alertsError;
+    if (!alerts?.length) return { success: true };
 
-              if (asset.isReference) {
-                return `${asset.symbol} stayed within ${asset.percentageChange}% (${priceInfo.change?.toFixed(2)}%)`;
-              } else {
-                const direction = priceInfo.change && priceInfo.change > 0 ? '↗' : '↘';
-                return `${asset.symbol} ${direction}${Math.abs(priceInfo.change || 0).toFixed(2)}%`;
-              }
+    // Only update price if we have active alerts
+    const { error: priceError } = await supabase
+      .from('latest_prices')
+      .upsert({
+        symbol: symbol.toUpperCase(),
+        price: currentPrice,
+        updated_at: new Date().toISOString(),
+      }, {
+        onConflict: 'symbol',
+      });
+
+    if (priceError) throw priceError;
+
+    // Process each alert
+    for (const alert of alerts) {
+      if (currentPrice >= alert.target_price) {
+        try {
+          // Get user notification preferences separately
+          const { data: userPrefs, error: prefsError } = await supabase
+            .from('user_notification_settings')
+            .select('phone, prefer_sms')
+            .eq('user_id', alert.user_id)
+            .single();
+
+          if (prefsError) {
+            console.error('Failed to get user preferences:', prefsError);
+            continue;
+          }
+          if (!userPrefs?.phone) continue;
+
+          let message: string;
+          
+          if (combinedCondition) {
+            const conditions = combinedCondition.conditions.assets
+              .map((asset) => {
+                const priceInfo = combinedCondition.prices[asset.symbol];
+                if (!priceInfo?.price) return '';
+
+                if (asset.isReference && typeof asset.percentageChange === 'number') {
+                  return `${asset.symbol} stayed within ${asset.percentageChange}% (${priceInfo.change?.toFixed(2)}%)`;
+                } else {
+                  const direction = (priceInfo.change ?? 0) > 0 ? '↗' : '↘';
+                  return `${asset.symbol} ${direction}${Math.abs(priceInfo.change ?? 0).toFixed(2)}%`;
+                }
+              })
+              .filter(Boolean);
+
+            const conditionMessage = conditions.join(
+              combinedCondition.conditions.logicOperator === 'AND' ? ' AND ' : ' OR '
+            );
+
+            message = `Combined condition met: ${conditionMessage}`;
+          } else {
+            message = `${symbol} has reached your target price of $${alert.target_price}. Current price: $${currentPrice}`;
+          }
+
+          // Use the user's preferred notification method
+          if (userPrefs.prefer_sms) {
+            await sendSMS({
+              userId: alert.user_id,
+              phone: userPrefs.phone,
+              message,
+              isEmergency: false,
+              bypassLimits: false,
+            });
+          } else {
+            await makeCall({
+              userId: alert.user_id,
+              phone: userPrefs.phone,
+              message,
+              isEmergency: false,
+              bypassDailyLimit: false,
+              shouldFallbackToSMS: true,
+              retryCount: 3,
+              retryDelay: 30000,
+            });
+          }
+
+          // Update alert status with trigger information
+          const { error: updateError } = await supabase
+            .from('price_alerts')
+            .update({ 
+              active: false,
+              triggered_at: new Date().toISOString(),
+              triggered_price: currentPrice
             })
-            .filter(Boolean);
+            .eq('id', alert.id);
 
-          const conditionMessage = conditions.join(
-            combinedCondition.conditions.logicOperator === 'AND' ? ' AND ' : ' OR '
-          );
+          if (updateError) throw updateError;
 
-          const priceDetails = Object.entries(combinedCondition.prices)
-            .map(([sym, info]) => `${sym}: $${info.price.toFixed(2)}`)
-            .join(', ');
+          // Log minimal alert history
+          const { error: historyError } = await supabase
+            .from('alert_history')
+            .insert({
+              alert_id: alert.id,
+              alert_type: combinedCondition ? 'combined' : 'price',
+              symbol,
+              triggered_price: currentPrice,
+              condition_type: combinedCondition ? combinedCondition.conditions.logicOperator : 'single',
+              assets_involved: combinedCondition 
+                ? combinedCondition.conditions.assets.map(a => a.symbol)
+                : [symbol]
+            });
 
-          message = `Combined condition met: ${conditionMessage}\n\nCurrent prices: ${priceDetails}`;
-        } else {
-          message = `${symbol} has reached your target price of $${alert.target_price}. Current price: $${currentPrice}`;
+          if (historyError) throw historyError;
+
+          revalidatePath('/dashboard');
+        } catch (error) {
+          console.error('Failed to process price alert:', error);
+          // Continue processing other alerts even if one fails
+          continue;
         }
-
-        // Use the user's preferred notification method
-        if (alert.users.prefer_sms) {
-          await sendSMS({
-            userId: alert.users.id,
-            phone: alert.users.phone,
-            message,
-            isEmergency: false,
-            bypassLimits: false,
-          });
-        } else {
-          await makeCall({
-            userId: alert.users.id,
-            phone: alert.users.phone,
-            message,
-            isEmergency: false,
-            bypassDailyLimit: false,
-            shouldFallbackToSMS: true,
-            retryCount: 3,
-            retryDelay: 30000,
-          });
-        }
-
-        // Deactivate alert after successful notification
-        await supabase
-          .from('price_alerts')
-          .update({ active: false })
-          .eq('id', alert.id);
-
-        // Log the alert trigger
-        await supabase.from('alert_history').insert({
-          user_id: alert.users.id,
-          alert_id: alert.id,
-          alert_type: combinedCondition ? 'combined' : 'price',
-          symbol,
-          triggered_price: currentPrice,
-          target_price: alert.target_price,
-          combined_condition: combinedCondition ? JSON.stringify(combinedCondition.conditions) : null,
-          combined_prices: combinedCondition ? JSON.stringify(combinedCondition.prices) : null,
-        });
-
-        revalidatePath('/dashboard');
-      } catch (error) {
-        console.error('Failed to process price alert:', error);
       }
     }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error monitoring price:', error);
+    return { 
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to monitor price'
+    };
   }
 }
 

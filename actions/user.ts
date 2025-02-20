@@ -3,21 +3,22 @@
 import { createServerSupabaseClient } from '@/lib/supabase';
 import { z } from 'zod';
 
-const preferencesSchema = z.object({
+const notificationPreferencesSchema = z.object({
+  phone: z.string().min(1),
+  prefer_sms: z.boolean(),
   active_24h: z.boolean(),
   quiet_hours_start: z.string().nullable(),
   quiet_hours_end: z.string().nullable(),
   weekends_enabled: z.boolean(),
-  prefer_sms: z.boolean(),
 });
 
-type UserPreferences = z.infer<typeof preferencesSchema>;
+type NotificationPreferences = z.infer<typeof notificationPreferencesSchema>;
 
 export async function updateUserPreferences(
-  preferences: UserPreferences
+  preferences: NotificationPreferences
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const validatedPrefs = preferencesSchema.parse(preferences);
+    const validatedPrefs = notificationPreferencesSchema.parse(preferences);
     
     const supabase = await createServerSupabaseClient();
     const { data: { session } } = await supabase.auth.getSession();
@@ -27,15 +28,17 @@ export async function updateUserPreferences(
     }
 
     const { error } = await supabase
-      .from('users')
-      .update({
+      .from('user_notification_settings')
+      .upsert({
+        user_id: session.user.id,
+        phone: validatedPrefs.phone,
+        prefer_sms: validatedPrefs.prefer_sms,
         active_24h: validatedPrefs.active_24h,
         quiet_hours_start: validatedPrefs.quiet_hours_start,
         quiet_hours_end: validatedPrefs.quiet_hours_end,
         weekends_enabled: validatedPrefs.weekends_enabled,
-        prefer_sms: validatedPrefs.prefer_sms,
-      })
-      .eq('id', session.user.id);
+        updated_at: new Date().toISOString(),
+      });
 
     if (error) throw error;
 
@@ -49,7 +52,7 @@ export async function updateUserPreferences(
   }
 }
 
-export async function getUserPreferences(): Promise<UserPreferences | null> {
+export async function getUserPreferences(): Promise<NotificationPreferences | null> {
   try {
     const supabase = await createServerSupabaseClient();
     const { data: { session } } = await supabase.auth.getSession();
@@ -59,14 +62,14 @@ export async function getUserPreferences(): Promise<UserPreferences | null> {
     }
 
     const { data, error } = await supabase
-      .from('users')
-      .select('active_24h, quiet_hours_start, quiet_hours_end, weekends_enabled, prefer_sms')
-      .eq('id', session.user.id)
+      .from('user_notification_settings')
+      .select('phone, prefer_sms, active_24h, quiet_hours_start, quiet_hours_end, weekends_enabled')
+      .eq('user_id', session.user.id)
       .single();
 
     if (error) throw error;
 
-    return preferencesSchema.parse(data);
+    return notificationPreferencesSchema.parse(data);
   } catch (error) {
     console.error('Failed to get preferences:', error);
     return null;

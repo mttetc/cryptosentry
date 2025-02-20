@@ -1,43 +1,36 @@
 export interface CallOptions {
+  userId: string;
   phone: string;
   message: string;
-  retryCount?: number;
-  retryDelay?: number;
+  bypassDailyLimit?: boolean;
   isEmergency?: boolean;
   shouldFallbackToSMS?: boolean;
-  bypassCooldown?: boolean;
-  bypassDailyLimit?: boolean;
-  userId: string;
+  retryCount?: number;
+  retryDelay?: number;
 }
 
 export interface SMSOptions {
+  userId: string;
   phone: string;
   message: string;
-  isEmergency?: boolean;
   bypassLimits?: boolean;
-  userId: string;
+  isEmergency?: boolean;
 }
 
 export interface CallResponse {
   success?: boolean;
-  error?: string;
   callId?: string;
-  message?: string;
+  error?: string;
   remainingCalls?: number;
   blockRemaining?: number;
   blockReason?: string;
-  cooldownRemaining?: number;
-  rateLimitReset?: number;
 }
 
 export interface SMSResponse {
   success?: boolean;
-  error?: string;
   messageId?: string;
+  error?: string;
   remainingSMS?: number;
-  truncated?: boolean;
-  cooldownRemaining?: number;
-  rateLimitReset?: number;
 }
 
 export interface MessagingProvider {
