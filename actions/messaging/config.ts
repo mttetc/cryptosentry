@@ -17,7 +17,8 @@ export const SETTINGS = {
     },
     SPEECH: {
       RATE: 1.3,
-      VOICE: 'neural' as const,
+      VOICE: 'female', // Default Telnyx TTS voice
+      LANGUAGE: 'en-US', // Default language
       WORDS_PER_SECOND: 2.5,
       MAX_WORDS: Math.floor(2.5 * 1.3 * 6), // Based on duration and rate
       OPTIMIZATION: {
@@ -32,6 +33,24 @@ export const SETTINGS = {
       ANSWER: 12,
       MACHINE: 3,
       DTMF: 2,
+    },
+    AMD: {
+      DEFAULT_CONFIG: {
+        TOTAL_ANALYSIS_TIME: 5000,
+        AFTER_GREETING_SILENCE: 800,
+        BETWEEN_WORDS_SILENCE: 500,
+        GREETING_DURATION: 3500,
+        INITIAL_SILENCE: 3000,
+        MAX_WORDS: 5,
+        MAX_WORD_LENGTH: 3000,
+        SILENCE_THRESHOLD: 500,
+        GREETING_TOTAL_ANALYSIS_TIME: 5000,
+        GREETING_SILENCE_DURATION: 1500,
+      },
+      RESPONSE_DELAYS: {
+        HUMAN: 500,    // Wait 500ms before speaking to a human
+        MACHINE: 1000, // Wait 1s after beep detection
+      },
     },
   },
   SMS: {
