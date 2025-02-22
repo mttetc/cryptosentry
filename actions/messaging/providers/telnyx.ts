@@ -5,6 +5,7 @@ import { SETTINGS } from '../config';
 import { createPublicKey, verify } from 'crypto';
 import { Buffer } from 'buffer';
 import { createServerSupabaseClient } from '@/lib/supabase';
+import { messageRequestSchema } from '../schemas';
 
 // Telnyx client setup
 const TELNYX_API_KEY = process.env.TELNYX_API_KEY!;
@@ -372,40 +373,38 @@ export const telnyxProvider: MessagingProvider = {
 
   async sendSMS(options: SMSOptions): Promise<SMSResponse> {
     try {
-      // Use alphanumeric sender for international numbers, use number pool for US/CA
-      let from: string;
-      
-      if (options.phone.startsWith('+1')) { // US/CA
-        const numbers = await listPhoneNumbers();
-        const usNumber = numbers.find(n => n.status === 'active' && n.phone_number.startsWith('+1'));
-        from = usNumber?.phone_number || process.env.TELNYX_SENDER_ID!;
-      } else if (options.phone.startsWith('+33')) { // France
-        const numbers = await listPhoneNumbers();
-        const frNumber = numbers.find(n => n.status === 'active' && n.phone_number.startsWith('+33'));
-        from = frNumber?.phone_number || process.env.TELNYX_SENDER_ID!;
-      } else if (options.phone.startsWith('+86')) { // China
-        const numbers = await listPhoneNumbers();
-        const cnNumber = numbers.find(n => n.status === 'active' && n.phone_number.startsWith('+86'));
-        from = cnNumber?.phone_number || process.env.TELNYX_SENDER_ID!;
-      } else {
-        from = process.env.TELNYX_SENDER_ID!; // Default to alphanumeric sender for other countries
+      const messageRequest = {
+        to: options.phone,
+        from: process.env.TELNYX_SENDER_ID!,
+        messaging_profile_id: process.env.TELNYX_MESSAGING_PROFILE_ID!,
+        text: options.message.slice(0, 160), // Standard SMS length
+        type: 'SMS' as const,
+      };
+
+      const validationResult = messageRequestSchema.safeParse(messageRequest);
+
+      if (!validationResult.success) {
+        console.error('Validation error:', validationResult.error);
+        return {
+          error: 'Invalid message request: ' + validationResult.error.errors.map(e => e.message).join(', '),
+        };
       }
 
-      const response = await telnyxRequest<{ data: { id: string } }>('/messages', 'POST', {
-        to: options.phone,
-        from,
-        text: options.message.slice(0, SETTINGS.SMS.MESSAGE.MAX_LENGTH),
-        messaging_profile_id: process.env.TELNYX_MESSAGING_PROFILE_ID,
-        webhook_url: process.env.TELNYX_WEBHOOK_URL,
-        custom_headers: {
-          'X-User-Id': options.userId,
+      const response = await fetch(`${process.env.TELNYX_API_BASE}/messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.TELNYX_API_KEY}`,
+          'Content-Type': 'application/json'
         },
+        body: JSON.stringify(validationResult.data)
       });
 
-      return {
-        success: true,
-        messageId: response.data.id,
-      };
+      if (!response.ok) {
+        throw new Error('Failed to send SMS');
+      }
+
+      const data = await response.json();
+      return { success: true, messageId: data.data.id };
     } catch (error) {
       console.error('Error sending SMS:', error);
       return {

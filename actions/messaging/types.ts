@@ -62,14 +62,8 @@ export interface CallOptions {
 }
 
 export interface SMSOptions {
-  userId: string;
   phone: string;
   message: string;
-  mediaUrls?: string[];  // For MMS support
-  subject?: string;      // For MMS support
-  bypassLimits?: boolean;
-  isEmergency?: boolean;
-  tags?: string[];       // For message tagging
 }
 
 export interface CallResponse {
@@ -88,11 +82,7 @@ export interface CallResponse {
 export interface SMSResponse {
   success?: boolean;
   messageId?: string;
-  remainingSMS?: number;
   error?: string;
-  blockRemaining?: number;
-  blockReason?: string;
-  message?: TelnyxMessageResponse;  // Full message response
 }
 
 export interface AMDResult {
