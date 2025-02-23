@@ -8,7 +8,6 @@ export const SETTINGS = {
     SPEECH: {
       RATE: 1.3,
       VOICE: 'female', // Default Telnyx TTS voice
-      LANGUAGE: 'en-US', // Default language
     },
     LIMITS: {
       DAILY: 50,

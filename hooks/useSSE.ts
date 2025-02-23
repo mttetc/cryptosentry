@@ -1,68 +1,11 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
-
-export type SSEEvent = {
-  price_update: {
-    alerts: Array<{
-      id: string;
-      symbol: string;
-      price: number;
-      condition: 'above' | 'below';
-      target_price: number;
-      user_id: string;
-      active: boolean;
-      created_at: string;
-    }>;
-    prices: Array<{
-      symbol: string;
-      price: number;
-      timestamp: number;
-      source: string;
-    }>;
-    timestamp: number;
-  };
-  social_update: {
-    alerts: Array<{
-      id: string;
-      platform: "twitter" | "reddit" | "discord";
-      keyword: string;
-      user_id: string;
-      active: boolean;
-      created_at: string;
-    }>;
-    monitoring: Array<{
-      platform: string;
-      keyword: string;
-      last_checked: string;
-    }>;
-    timestamp: number;
-  };
-  message_status: {
-    type: 'call' | 'sms';
-    status: 'initiated' | 'sending' | 'delivered' | 'failed';
-    messageId: string;
-    userId: string;
-    remainingCalls?: number;
-    remainingSMS?: number;
-    error?: string;
-    timestamp: number;
-  };
-  error: {
-    type: 'price_monitoring' | 'social_monitoring' | 'stream' | 'messaging';
-    message: string;
-  };
-  init: {
-    status: string;
-    connectionId: string;
-  };
-};
-
-export type SSEEventType = keyof SSEEvent;
+import { sseConfig } from "@/config/sse";
+import { sseEventSchema } from "@/actions/monitor/schemas/sse";
 
 interface UseSSEOptions {
-  onEvent?: Partial<{
-    [K in SSEEventType]: (data: SSEEvent[K]) => void;
-  }>;
+  onPriceUpdate?: (data: { symbol: string; price: number; timestamp: number }) => void;
+  onSocialUpdate?: (data: { platform: string; content: string; timestamp: number }) => void;
   retryOnError?: boolean;
   maxRetries?: number;
   onMaxRetriesReached?: () => void;
@@ -70,18 +13,17 @@ interface UseSSEOptions {
 
 export function useSSE(url: string, options: UseSSEOptions = {}) {
   const {
-    onEvent,
+    onPriceUpdate,
+    onSocialUpdate,
     retryOnError = true,
-    maxRetries = 5,
+    maxRetries = sseConfig.maxRetries,
     onMaxRetriesReached,
   } = options;
 
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
-  const eventListenersRef = useRef<Map<string, EventListener>>(new Map());
   const reconnectAttemptsRef = useRef(0);
-  const connectionIdRef = useRef<string | null>(null);
   const { toast } = useToast();
 
   const connect = useCallback(() => {
@@ -93,52 +35,63 @@ export function useSSE(url: string, options: UseSSEOptions = {}) {
     const eventSource = new EventSource(url);
     eventSourceRef.current = eventSource;
 
-    // Store the open handler
-    const openHandler: EventListener = (event) => {
+    // Handle connection open
+    eventSource.addEventListener('open', () => {
       setIsConnected(true);
       setError(null);
-      if (connectionIdRef.current) {
-        reconnectAttemptsRef.current = 0;
-      }
-    };
-    eventSource.addEventListener('open', openHandler);
-    eventListenersRef.current.set('open', openHandler);
+      reconnectAttemptsRef.current = 0;
+    });
 
-    // Handle different event types
-    const handleEvent = (eventType: SSEEventType) => {
-      const callback = onEvent?.[eventType];
-      if (!callback) return;
-
-      const eventHandler: EventListener = (event) => {
+    // Handle price updates
+    if (onPriceUpdate) {
+      eventSource.addEventListener('price_update', (event) => {
         if (event instanceof MessageEvent) {
           try {
             const data = JSON.parse(event.data);
+            const validationResult = sseEventSchema.safeParse(data);
             
-            if (eventType === 'init') {
-              connectionIdRef.current = data.connectionId;
+            if (!validationResult.success) {
+              console.error('Invalid price update data:', validationResult.error);
+              return;
             }
-            
-            callback(data);
+
+            const validatedEvent = validationResult.data;
+            if (validatedEvent.type === 'price_update') {
+              onPriceUpdate(validatedEvent.data);
+            }
           } catch (err) {
-            console.error(`Failed to parse ${eventType} event:`, err);
-            toast({
-              title: "Error",
-              description: `Failed to process ${eventType} update`,
-              variant: "destructive",
-            });
+            console.error('Failed to process price update:', err);
           }
         }
-      };
+      });
+    }
 
-      eventSource.addEventListener(eventType, eventHandler);
-      eventListenersRef.current.set(eventType, eventHandler);
-    };
+    // Handle social updates
+    if (onSocialUpdate) {
+      eventSource.addEventListener('social_update', (event) => {
+        if (event instanceof MessageEvent) {
+          try {
+            const data = JSON.parse(event.data);
+            const validationResult = sseEventSchema.safeParse(data);
+            
+            if (!validationResult.success) {
+              console.error('Invalid social update data:', validationResult.error);
+              return;
+            }
 
-    // Set up event listeners for each event type
-    (Object.keys(onEvent || {}) as SSEEventType[]).forEach(handleEvent);
+            const validatedEvent = validationResult.data;
+            if (validatedEvent.type === 'social_update') {
+              onSocialUpdate(validatedEvent.data);
+            }
+          } catch (err) {
+            console.error('Failed to process social update:', err);
+          }
+        }
+      });
+    }
 
-    // Store the error handler
-    const errorHandler: EventListener = (event) => {
+    // Handle connection errors
+    eventSource.addEventListener('error', () => {
       if (eventSource.readyState === EventSource.CLOSED) {
         setIsConnected(false);
         setError("Connection lost");
@@ -148,15 +101,18 @@ export function useSSE(url: string, options: UseSSEOptions = {}) {
           handleReconnect();
         }
       }
-    };
-    eventSource.addEventListener('error', errorHandler);
-    eventListenersRef.current.set('error', errorHandler);
+    });
 
-  }, [url, onEvent, retryOnError, toast]);
+  }, [url, onPriceUpdate, onSocialUpdate, retryOnError, toast]);
 
   const handleReconnect = useCallback(() => {
     if (reconnectAttemptsRef.current < maxRetries) {
-      const retryTimeout = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000);
+      // Use configured backoff multiplier
+      const retryTimeout = Math.min(
+        sseConfig.interval * Math.pow(sseConfig.backoffMultiplier, reconnectAttemptsRef.current),
+        30000 // Max timeout cap
+      );
+      
       setTimeout(() => {
         reconnectAttemptsRef.current += 1;
         connect();
@@ -184,22 +140,14 @@ export function useSSE(url: string, options: UseSSEOptions = {}) {
     return () => {
       const eventSource = eventSourceRef.current;
       if (eventSource) {
-        // Remove all stored event listeners
-        eventListenersRef.current.forEach((listener, eventType) => {
-          eventSource.removeEventListener(eventType, listener);
-        });
-        eventListenersRef.current.clear();
-        
-        // Close the connection
         eventSource.close();
         eventSourceRef.current = null;
       }
     };
-  }, [connect, onEvent]);
+  }, [connect]);
 
   return {
     isConnected,
     error,
-    connectionId: connectionIdRef.current,
   };
 }

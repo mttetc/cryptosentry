@@ -3,7 +3,7 @@
 import { createServerSupabaseClient } from '@/lib/supabase';
 import { getActiveAlerts } from '@/actions/alerts/lib/core';
 import { deliverAlert } from '@/actions/alerts/lib/alert-delivery';
-import type { AlertCondition, AssetCondition } from '@/actions/alerts/schemas';
+import type { AlertCondition } from '@/actions/alerts/schemas';
 
 export interface MonitorState {
   error?: string;

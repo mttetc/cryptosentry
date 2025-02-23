@@ -2,6 +2,7 @@
 
 import { handleSSEEvent } from '@/actions/monitor/lib/sse';
 import { headers } from 'next/headers';
+import { sseConfig } from '@/config/sse';
 
 export const runtime = 'edge';
 
@@ -12,10 +13,10 @@ export async function GET() {
   // Create SSE stream
   const stream = new ReadableStream({
     start(controller) {
-      // Keep connection alive
+      // Keep connection alive using configured interval
       const interval = setInterval(() => {
         controller.enqueue(encoder.encode('event: ping\ndata: {}\n\n'));
-      }, 30000);
+      }, sseConfig.interval);
 
       // Cleanup on close
       return () => {

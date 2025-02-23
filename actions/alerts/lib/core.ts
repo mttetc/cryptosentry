@@ -2,7 +2,6 @@
 
 import { createServerSupabaseClient } from '@/lib/supabase';
 import { revalidatePath } from 'next/cache';
-import type { AlertCondition, AssetCondition } from '../schemas';
 import { priceAlertSchema, socialAlertSchema } from '../schemas';
 import type { z } from 'zod';
 

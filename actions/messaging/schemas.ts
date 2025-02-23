@@ -68,6 +68,18 @@ export const telnyxCallResponseSchema = z.object({
   error: z.string().optional()
 });
 
+export const telnyxCallPayloadSchema = z.object({
+  to: z.string().regex(/^\+[1-9]\d{1,14}$/, "Must be an E.164 phone number"),
+  from: z.string().regex(/^\+[1-9]\d{1,14}$/, "Must be an E.164 phone number"),
+  webhook_url: z.string().url(),
+  record_audio: z.boolean(),
+  timeout_secs: z.number().int().positive(),
+  answering_machine_detection: z.enum(['basic', 'premium']),
+  custom_headers: z.record(z.string(), z.string()),
+  tts_voice: z.string(),
+  tts_payload: z.string().min(1),
+});
+
 export const messageRequestSchema = z.object({
   from: z.string()
     .regex(/^\+?[1-9]\d{1,14}$|^[A-Za-z0-9]{1,11}$/, "Must be an E.164 phone number or alphanumeric sender ID"),
@@ -88,4 +100,5 @@ export type MessageType = z.infer<typeof messageTypeSchema>;
 export type NotificationPayload = z.infer<typeof notificationPayloadSchema>;
 export type NotificationResponse = z.infer<typeof notificationResponseSchema>;
 export type TelnyxSMSResponse = z.infer<typeof telnyxSMSResponseSchema>;
-export type TelnyxCallResponse = z.infer<typeof telnyxCallResponseSchema>; 
+export type TelnyxCallResponse = z.infer<typeof telnyxCallResponseSchema>;
+export type TelnyxCallPayload = z.infer<typeof telnyxCallPayloadSchema>; 

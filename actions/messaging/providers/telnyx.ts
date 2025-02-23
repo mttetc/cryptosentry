@@ -2,7 +2,7 @@
 
 import { MessagingProvider, CallOptions, SMSOptions, CallResponse, SMSResponse, TelnyxMessageResponse, TelnyxWebhookPayload } from '../types';
 import { createServerSupabaseClient } from '@/lib/supabase';
-import { messageRequestSchema } from '../schemas';
+import { messageRequestSchema, telnyxCallPayloadSchema } from '../schemas';
 import { createPublicKey, verify } from 'crypto';
 import { Buffer } from 'buffer';
 import { SETTINGS } from '@/config/messaging';
@@ -75,23 +75,31 @@ export const telnyxProvider: MessagingProvider = {
     try {
       const optimizedMessage = optimizeMessage(options.message, options.recipientType);
 
-      // Make the call using Telnyx's default AMD settings
-      const response = await telnyxRequest<{ data: { id: string } }>('/calls', 'POST', {
+      const callPayload = {
         to: options.phone,
-        from: process.env.TELNYX_VOICE_NUMBER,
-        webhook_url: process.env.TELNYX_WEBHOOK_URL,
+        from: process.env.TELNYX_VOICE_NUMBER!,
+        webhook_url: process.env.TELNYX_WEBHOOK_URL!,
         record_audio: false,
         timeout_secs: SETTINGS.CALL.TIMEOUTS.ANSWER,
-        answering_machine_detection: 'premium', // Use Telnyx's premium AMD
+        answering_machine_detection: 'premium' as const,
         custom_headers: {
           'X-User-Id': options.userId,
         },
         tts_voice: SETTINGS.CALL.SPEECH.VOICE,
-        tts_language: options.phone.startsWith('+33') ? 'fr-FR' : 
-                     options.phone.startsWith('+86') ? 'cmn-CN' : 
-                     'en-US',
         tts_payload: optimizedMessage
-      });
+      };
+
+      const validationResult = telnyxCallPayloadSchema.safeParse(callPayload);
+
+      if (!validationResult.success) {
+        console.error('Validation error:', validationResult.error);
+        return {
+          error: 'Invalid call payload: ' + validationResult.error.errors.map(e => e.message).join(', '),
+        };
+      }
+
+      // Make the call using Telnyx's default AMD settings
+      const response = await telnyxRequest<{ data: { id: string } }>('/calls', 'POST', validationResult.data);
 
       return {
         success: true,
@@ -112,7 +120,7 @@ export const telnyxProvider: MessagingProvider = {
         from: process.env.TELNYX_SENDER_ID!,
         messaging_profile_id: process.env.TELNYX_MESSAGING_PROFILE_ID!,
         text: options.message.slice(0, SETTINGS.SMS.MESSAGE.MAX_LENGTH),
-        type: 'SMS' as const,
+        type: 'SMS',
       };
 
       const validationResult = messageRequestSchema.safeParse(messageRequest);
