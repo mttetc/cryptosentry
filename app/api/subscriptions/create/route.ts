@@ -2,7 +2,7 @@
 
 import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
-import { SUBSCRIPTION_TIERS } from '@/actions/messaging/config';
+import { SUBSCRIPTION_TIERS } from '@/config/subscriptions';
 import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {

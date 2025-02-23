@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase";
-import { SETTINGS } from "@/actions/messaging/config";
+import { SETTINGS } from "@/config/messaging";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";

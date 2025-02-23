@@ -1,11 +1,11 @@
 'use server';
 
 import { MessagingProvider, CallOptions, SMSOptions, CallResponse, SMSResponse, TelnyxMessageResponse, TelnyxWebhookPayload } from '../types';
-import { SETTINGS } from '../config';
 import { createServerSupabaseClient } from '@/lib/supabase';
 import { messageRequestSchema } from '../schemas';
 import { createPublicKey, verify } from 'crypto';
 import { Buffer } from 'buffer';
+import { SETTINGS } from '@/config/messaging';
 
 // Telnyx client setup
 const TELNYX_API_KEY = process.env.TELNYX_API_KEY!;
