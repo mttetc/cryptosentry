@@ -1,6 +1,6 @@
 'use server';
 
-import { handleSSEEvent } from '@/actions/monitor/lib/sse';
+import { handleMonitorEvent } from '@/actions/monitor/lib/core';
 import { headers } from 'next/headers';
 import { sseConfig } from '@/config/sse';
 
@@ -37,7 +37,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const event = await request.json();
-    const result = await handleSSEEvent(event);
+    const result = await handleMonitorEvent(event);
 
     if (!result.success) {
       return new Response(JSON.stringify({ error: result.error }), {

@@ -15,6 +15,18 @@ export async function signUp(prevState: AuthState, formData: FormData): Promise<
 
     const supabase = await createServerSupabaseClient();
 
+    // Check if phone number is already registered
+    const { count } = await supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true })
+      .eq('phone', validatedFields.phone);
+
+    if (count && count > 0) {
+      return {
+        error: 'Phone number already in use',
+      };
+    }
+
     // Sign up the user with just email/password
     const { data: authData, error: signUpError } = await supabase.auth.signUp({
       email: validatedFields.email,

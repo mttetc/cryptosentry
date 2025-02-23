@@ -49,5 +49,3 @@ export async function startMonitoring(): Promise<{ success: boolean; error?: str
 startMonitoring().catch(error => {
   logError('Failed to initialize monitoring:', error);
 });
-
-export * from './lib/core'; 
