@@ -37,8 +37,18 @@ export type SSEEvent = {
     }>;
     timestamp: number;
   };
+  message_status: {
+    type: 'call' | 'sms';
+    status: 'initiated' | 'sending' | 'delivered' | 'failed';
+    messageId: string;
+    userId: string;
+    remainingCalls?: number;
+    remainingSMS?: number;
+    error?: string;
+    timestamp: number;
+  };
   error: {
-    type: 'price_monitoring' | 'social_monitoring' | 'stream';
+    type: 'price_monitoring' | 'social_monitoring' | 'stream' | 'messaging';
     message: string;
   };
   init: {

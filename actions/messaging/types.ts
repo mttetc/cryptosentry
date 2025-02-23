@@ -1,3 +1,19 @@
+export type MessageType = 'sms' | 'call' | 'both';
+
+export interface NotificationPayload {
+  userId: string;
+  message: string;
+  type: MessageType;
+}
+
+export interface NotificationResponse {
+  success: boolean;
+  error?: string;
+  messageId?: string; // For backward compatibility
+  smsMessageId?: string;
+  callId?: string;
+}
+
 export interface MessageCarrier {
   phone_number: string;
   carrier: string;
@@ -62,6 +78,7 @@ export interface CallOptions {
 }
 
 export interface SMSOptions {
+  userId: string;
   phone: string;
   message: string;
 }
@@ -83,6 +100,7 @@ export interface SMSResponse {
   success?: boolean;
   messageId?: string;
   error?: string;
+  remainingSMS?: number;
 }
 
 export interface AMDResult {
@@ -193,27 +211,5 @@ export interface MessagingProvider {
   handleSMSWebhook(data: TelnyxWebhookPayload): Promise<void>;
   getAMDAnalytics?(userId: string, timeRange?: { start: Date; end: Date }): Promise<AMDAnalytics>;
   listPhoneNumbers?(): Promise<TelnyxPhoneNumber[]>;
-  updatePhoneNumber?(id: string, settings: any): Promise<TelnyxPhoneNumber>;
-  optimizePhoneNumberSettings?(): Promise<void>;
-  createOutboundVoiceProfile?(name: string, settings: {
-    concurrent_call_limit?: number;
-    whitelisted_destinations?: string[];
-    max_destination_rate?: number;
-    daily_spend_limit?: string;
-    daily_spend_limit_enabled?: boolean;
-    tags?: string[];
-  }): Promise<TelnyxOutboundVoiceProfile>;
-  listOutboundVoiceProfiles?(): Promise<TelnyxOutboundVoiceProfile[]>;
-  updateOutboundVoiceProfile?(id: string, settings: {
-    name?: string;
-    concurrent_call_limit?: number;
-    enabled?: boolean;
-    whitelisted_destinations?: string[];
-    max_destination_rate?: number;
-    daily_spend_limit?: string;
-    daily_spend_limit_enabled?: boolean;
-    tags?: string[];
-  }): Promise<TelnyxOutboundVoiceProfile>;
-  setupDefaultOutboundVoiceProfile?(): Promise<void>;
   getRemainingUsage?(userId: string): Promise<{ remainingCalls: number; remainingSMS: number }>;
 } 

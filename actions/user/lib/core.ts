@@ -1,22 +1,12 @@
 'use server';
 
 import { createServerSupabaseClient } from '@/lib/supabase';
-import { z } from 'zod';
-
-const notificationPreferencesSchema = z.object({
-  phone: z.string().min(1),
-  prefer_sms: z.boolean(),
-  active_24h: z.boolean(),
-  quiet_hours_start: z.string().nullable(),
-  quiet_hours_end: z.string().nullable(),
-  weekends_enabled: z.boolean(),
-});
-
-type NotificationPreferences = z.infer<typeof notificationPreferencesSchema>;
+import type { NotificationPreferences, UserState } from '../types';
+import { notificationPreferencesSchema } from '../types';
 
 export async function updateUserPreferences(
   preferences: NotificationPreferences
-): Promise<{ success: boolean; error?: string }> {
+): Promise<UserState> {
   try {
     const validatedPrefs = notificationPreferencesSchema.parse(preferences);
     

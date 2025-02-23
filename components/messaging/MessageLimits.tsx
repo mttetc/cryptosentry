@@ -1,5 +1,3 @@
-import { SETTINGS } from '@/actions/messaging/config';
-
 interface MessageLimitsProps {
   remainingCalls: number;
   remainingSMS: number;

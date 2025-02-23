@@ -7,6 +7,24 @@ import { Check } from 'lucide-react';
 import { SUBSCRIPTION_TIERS } from '@/actions/messaging/config';
 import { useToast } from '@/hooks/use-toast';
 
+const FEATURES = {
+  BASIC: [
+    'Real-time price monitoring',
+    'Social media alerts',
+    'SMS notifications',
+    'Voice calls',
+    'Email support'
+  ],
+  PRO: [
+    'All Basic features',
+    'Priority notifications',
+    'Advanced analytics',
+    'Team collaboration',
+    'Priority support',
+    'Custom integrations'
+  ]
+} as const;
+
 export function PricingTiers() {
   const [isLoading, setIsLoading] = useState<string | null>(null);
   const { toast } = useToast();
@@ -14,11 +32,23 @@ export function PricingTiers() {
   const handleSubscribe = async (tier: 'BASIC' | 'PRO') => {
     try {
       setIsLoading(tier);
-      // TODO: Implement subscription logic with Stripe
-      toast({
-        title: 'Coming Soon',
-        description: 'Subscription functionality will be available soon!',
+      
+      const response = await fetch('/api/subscriptions/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ tier }),
       });
+
+      if (!response.ok) {
+        throw new Error('Failed to create subscription');
+      }
+
+      const data = await response.json();
+      
+      // Redirect to Stripe checkout
+      window.location.href = data.url;
     } catch (error) {
       toast({
         title: 'Error',
@@ -44,22 +74,12 @@ export function PricingTiers() {
             <span className="text-muted-foreground">/month</span>
           </div>
           <ul className="space-y-2">
-            <li className="flex items-center gap-2">
-              <Check className="h-4 w-4 text-green-500" />
-              <span>{SUBSCRIPTION_TIERS.BASIC.limits.calls.daily} calls per day</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <Check className="h-4 w-4 text-green-500" />
-              <span>{SUBSCRIPTION_TIERS.BASIC.limits.sms.daily} SMS per day</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <Check className="h-4 w-4 text-green-500" />
-              <span>Basic monitoring features</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <Check className="h-4 w-4 text-green-500" />
-              <span>Email support</span>
-            </li>
+            {FEATURES.BASIC.map((feature) => (
+              <li key={feature} className="flex items-center gap-2">
+                <Check className="h-4 w-4 text-green-500" />
+                <span>{feature}</span>
+              </li>
+            ))}
           </ul>
         </CardContent>
         <CardFooter>
@@ -88,34 +108,20 @@ export function PricingTiers() {
             <span className="text-muted-foreground">/month</span>
           </div>
           <ul className="space-y-2">
-            <li className="flex items-center gap-2">
-              <Check className="h-4 w-4 text-green-500" />
-              <span>{SUBSCRIPTION_TIERS.PRO.limits.calls.daily} calls per day</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <Check className="h-4 w-4 text-green-500" />
-              <span>{SUBSCRIPTION_TIERS.PRO.limits.sms.daily} SMS per day</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <Check className="h-4 w-4 text-green-500" />
-              <span>Advanced monitoring features</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <Check className="h-4 w-4 text-green-500" />
-              <span>Priority support</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <Check className="h-4 w-4 text-green-500" />
-              <span>Team collaboration</span>
-            </li>
+            {FEATURES.PRO.map((feature) => (
+              <li key={feature} className="flex items-center gap-2">
+                <Check className="h-4 w-4 text-green-500" />
+                <span>{feature}</span>
+              </li>
+            ))}
           </ul>
         </CardContent>
         <CardFooter>
           <Button 
             className="w-full" 
-            variant="default"
             onClick={() => handleSubscribe('PRO')}
             disabled={isLoading !== null}
+            variant="default"
           >
             {isLoading === 'PRO' ? 'Processing...' : 'Subscribe to Pro'}
           </Button>

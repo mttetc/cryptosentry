@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase";
-import { experimental_taintObjectReference } from "react";
-import { telnyxProvider } from "@/actions/messaging/providers/telnyx";
+import { sendDirectMessage } from "@/actions/messaging/lib/direct-messaging";
+import type { NotificationPayload } from "@/actions/messaging/types";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { type, phone, message, isEmergency } = body;
+    const { type, phone, message } = body;
 
     if (!type || !phone || !message) {
       return new NextResponse(
@@ -28,27 +28,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let result;
-    if (type === 'call') {
-      result = await telnyxProvider.makeCall({
-        userId: session.user.id,
-        phone,
-        message,
-        isEmergency,
-      });
-    } else if (type === 'sms') {
-      result = await telnyxProvider.sendSMS({
-        userId: session.user.id,
-        phone,
-        message,
-        isEmergency,
-      });
-    } else {
+    // Validate notification type
+    if (!['sms', 'call', 'both'].includes(type)) {
       return new NextResponse(
         JSON.stringify({ error: "Invalid notification type" }),
         { status: 400 }
       );
     }
+
+    const result = await sendDirectMessage({
+      userId: session.user.id,
+      message,
+      type
+    });
 
     if (result.error) {
       return new NextResponse(
@@ -57,21 +49,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Store notification in history
+    // Store message in history
     await supabase
-      .from('notification_history')
+      .from('message_history')
       .insert({
         user_id: session.user.id,
         type,
         phone,
         message,
         status: 'sent',
+        sms_message_id: result.smsMessageId,
+        call_id: result.callId
       });
 
     return new NextResponse(
       JSON.stringify({
         success: true,
-        ...result,
+        smsMessageId: result.smsMessageId,
+        callId: result.callId
       }),
       {
         headers: {
@@ -80,7 +75,7 @@ export async function POST(request: NextRequest) {
       }
     );
   } catch (error) {
-    console.error('Error sending notification:', error);
+    console.error('Error sending message:', error);
     return new NextResponse(
       JSON.stringify({
         error: error instanceof Error ? error.message : 'Internal Server Error',

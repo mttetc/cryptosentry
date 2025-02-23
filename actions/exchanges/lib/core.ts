@@ -1,17 +1,11 @@
 'use server';
 
-import { monitorPrice } from '@/actions/alerts';
-import { z } from 'zod';
+import { monitorPrice } from '@/actions/monitor/lib/core';
 import { createServerSupabaseClient } from '@/lib/supabase';
-
-// Types
-interface PriceAlert {
-  symbol: string;
-  target_price: number;
-}
+import type { ExchangeState, PriceAlert } from '../types';
 
 // Start price monitoring
-export async function startPriceMonitoring() {
+export async function startPriceMonitoring(): Promise<ExchangeState> {
   try {
     const supabase = await createServerSupabaseClient();
     const { data: alerts } = await supabase
@@ -29,11 +23,6 @@ export async function startPriceMonitoring() {
     return { success: true };
   } catch (error) {
     console.error('Error starting price monitoring:', error);
-    return { error: 'Failed to start price monitoring' };
+    return { success: false, error: 'Failed to start price monitoring' };
   }
-}
-
-// Stop price monitoring (no-op since we're not using WebSocket anymore)
-export async function stopPriceMonitoring() {
-  return { success: true };
 }

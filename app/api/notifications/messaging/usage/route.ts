@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase";
-import { experimental_taintObjectReference } from "react";
 import { SETTINGS } from "@/actions/messaging/config";
 
 export const runtime = "edge";
@@ -120,12 +119,6 @@ export async function GET(request: NextRequest) {
         riskScore: security?.risk_score || 0,
       };
     }
-
-    // Prevent sensitive data from being exposed
-    experimental_taintObjectReference(
-      'Do not pass raw usage data to client',
-      limits
-    );
 
     return new NextResponse(
       JSON.stringify(limits),

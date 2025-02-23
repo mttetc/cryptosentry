@@ -6,18 +6,13 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { TimeInput } from '@/components/ui/time-input';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { updateUserPreferences } from '@/actions/user';
+import { updateUserPreferences, getUserPreferences } from '@/actions/user';
 import { Skeleton } from '@/components/ui/skeleton';
-
-interface NotificationPreferences {
-  phone: string;
-  prefer_sms: boolean;
-  active_24h: boolean;
-  quiet_hours_start: string | null;
-  quiet_hours_end: string | null;
-  weekends_enabled: boolean;
-}
+import type { NotificationPreferences } from '@/actions/user/types';
+import { AlertCircle } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const DEFAULT_PREFERENCES: NotificationPreferences = {
   phone: '',
@@ -28,21 +23,23 @@ const DEFAULT_PREFERENCES: NotificationPreferences = {
   weekends_enabled: true,
 };
 
+// E.164 phone number format validation
+const PHONE_REGEX = /^\+[1-9]\d{1,14}$/;
+
 export function UserPreferences() {
   const [preferences, setPreferences] = useState<NotificationPreferences>(DEFAULT_PREFERENCES);
   const [isPending, setIsPending] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [phoneError, setPhoneError] = useState('');
   const { toast } = useToast();
 
   useEffect(() => {
     async function fetchPreferences() {
       try {
-        const response = await fetch('/api/user/notification-settings');
-        if (!response.ok) {
-          throw new Error('Failed to fetch preferences');
+        const prefs = await getUserPreferences();
+        if (prefs) {
+          setPreferences(prefs);
         }
-        const data = await response.json();
-        setPreferences(data);
       } catch (error) {
         toast({
           title: 'Error',
@@ -57,7 +54,24 @@ export function UserPreferences() {
     fetchPreferences();
   }, [toast]);
 
+  const validatePhone = (phone: string) => {
+    if (!phone) {
+      setPhoneError('Phone number is required');
+      return false;
+    }
+    if (!PHONE_REGEX.test(phone)) {
+      setPhoneError('Phone number must be in E.164 format (e.g., +33612345678)');
+      return false;
+    }
+    setPhoneError('');
+    return true;
+  };
+
   const handleSave = async () => {
+    if (!validatePhone(preferences.phone)) {
+      return;
+    }
+
     try {
       setIsPending(true);
       const result = await updateUserPreferences(preferences);
@@ -89,7 +103,7 @@ export function UserPreferences() {
           <Skeleton className="h-4 w-[300px]" />
         </CardHeader>
         <CardContent className="space-y-6">
-          {Array.from({ length: 4 }).map((_, i) => (
+          {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Skeleton className="h-5 w-[150px]" />
@@ -113,10 +127,32 @@ export function UserPreferences() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* 24/7 Monitoring */}
+        {/* Phone Number */}
+        <div className="space-y-2">
+          <Label htmlFor="phone">Phone Number</Label>
+          <Input
+            id="phone"
+            type="tel"
+            placeholder="+33612345678"
+            value={preferences.phone}
+            onChange={(e) => {
+              setPreferences(prev => ({ ...prev, phone: e.target.value }));
+              validatePhone(e.target.value);
+            }}
+            className={cn(phoneError && "border-destructive")}
+          />
+          {phoneError && (
+            <div className="flex items-center gap-2 text-sm text-destructive">
+              <AlertCircle className="h-4 w-4" />
+              {phoneError}
+            </div>
+          )}
+        </div>
+
+        {/* 24/7 Alerts */}
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
-            <Label>24/7 Monitoring</Label>
+            <Label>24/7 Alerts</Label>
             <p className="text-sm text-muted-foreground">
               Receive alerts at any time
             </p>
@@ -130,35 +166,32 @@ export function UserPreferences() {
         </div>
 
         {/* Quiet Hours */}
-        <div className="space-y-4">
-          <div className="space-y-0.5">
-            <Label>Quiet Hours</Label>
+        <div className="space-y-2">
+          <Label>Quiet Hours</Label>
+          <div className="flex items-center gap-4">
+            <TimeInput
+              value={preferences.quiet_hours_start || ''}
+              onChange={(value) => 
+                setPreferences(prev => ({ ...prev, quiet_hours_start: value || null }))
+              }
+              disabled={preferences.active_24h}
+              placeholder="Start time"
+            />
+            <span>to</span>
+            <TimeInput
+              value={preferences.quiet_hours_end || ''}
+              onChange={(value) => 
+                setPreferences(prev => ({ ...prev, quiet_hours_end: value || null }))
+              }
+              disabled={preferences.active_24h}
+              placeholder="End time"
+            />
+          </div>
+          {!preferences.active_24h && !preferences.quiet_hours_start && !preferences.quiet_hours_end && (
             <p className="text-sm text-muted-foreground">
-              Don't send alerts during these hours
+              Set quiet hours to prevent notifications during specific times
             </p>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Start Time</Label>
-              <TimeInput
-                value={preferences.quiet_hours_start || ''}
-                onChange={(time: string) => 
-                  setPreferences(prev => ({ ...prev, quiet_hours_start: time }))
-                }
-                disabled={preferences.active_24h}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>End Time</Label>
-              <TimeInput
-                value={preferences.quiet_hours_end || ''}
-                onChange={(time: string) => 
-                  setPreferences(prev => ({ ...prev, quiet_hours_end: time }))
-                }
-                disabled={preferences.active_24h}
-              />
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Weekend Alerts */}
@@ -196,10 +229,10 @@ export function UserPreferences() {
 
         <Button 
           onClick={handleSave} 
-          disabled={isPending}
+          disabled={isPending || !!phoneError}
           className="w-full"
         >
-          Save Preferences
+          {isPending ? 'Saving...' : 'Save Preferences'}
         </Button>
       </CardContent>
     </Card>

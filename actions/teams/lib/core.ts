@@ -1,20 +1,8 @@
-import { z } from 'zod';
+'use server';
+
 import { createServerSupabaseClient } from '@/lib/supabase';
-
-const teamSchema = z.object({
-  name: z.string().min(1).max(100),
-});
-
-const memberSchema = z.object({
-  email: z.string().email(),
-  role: z.enum(['admin', 'member', 'viewer']),
-});
-
-export type TeamState = {
-  error?: string;
-  success?: boolean;
-  teamId?: string;
-};
+import type { TeamState, TeamRole } from '../types';
+import { teamSchema, memberSchema } from '../types';
 
 export async function createTeam(prevState: TeamState, formData: FormData): Promise<TeamState> {
   try {
@@ -56,7 +44,7 @@ export async function createTeam(prevState: TeamState, formData: FormData): Prom
 export async function addMember(
   teamId: string,
   email: string,
-  role: 'admin' | 'member' | 'viewer'
+  role: TeamRole
 ): Promise<TeamState> {
   try {
     const validatedFields = memberSchema.parse({ email, role });
@@ -111,7 +99,7 @@ export async function addMember(
 export async function updateMemberRole(
   teamId: string,
   userId: string,
-  role: 'admin' | 'member' | 'viewer'
+  role: TeamRole
 ): Promise<TeamState> {
   try {
     const supabase = await createServerSupabaseClient();
@@ -186,4 +174,4 @@ export async function removeMember(teamId: string, userId: string): Promise<Team
       error: error instanceof Error ? error.message : 'Failed to remove member',
     };
   }
-}
+} 

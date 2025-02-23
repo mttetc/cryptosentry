@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase";
-import { experimental_taintObjectReference } from "react";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
@@ -42,11 +41,6 @@ export async function GET(request: NextRequest) {
 
         if (insertError) throw insertError;
 
-        experimental_taintObjectReference(
-          'Do not pass raw user settings to client',
-          defaultSettings
-        );
-
         return new NextResponse(
           JSON.stringify(defaultSettings),
           {
@@ -59,11 +53,6 @@ export async function GET(request: NextRequest) {
       }
       throw error;
     }
-
-    experimental_taintObjectReference(
-      'Do not pass raw user settings to client',
-      data
-    );
 
     return new NextResponse(
       JSON.stringify(data),

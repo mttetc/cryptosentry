@@ -40,6 +40,34 @@ export const messagingProfileSchema = z.object({
   mms_transcoding: z.boolean().optional(),
 });
 
+export const messageTypeSchema = z.enum(['sms', 'call', 'both']);
+
+export const notificationPayloadSchema = z.object({
+  userId: z.string().min(1),
+  message: z.string().min(1),
+  type: messageTypeSchema
+});
+
+export const notificationResponseSchema = z.object({
+  success: z.boolean(),
+  error: z.string().optional(),
+  messageId: z.string().optional(), // For backward compatibility
+  smsMessageId: z.string().optional(),
+  callId: z.string().optional()
+});
+
+export const telnyxSMSResponseSchema = z.object({
+  success: z.boolean(),
+  messageId: z.string().optional(),
+  error: z.string().optional()
+});
+
+export const telnyxCallResponseSchema = z.object({
+  success: z.boolean(),
+  callId: z.string().optional(),
+  error: z.string().optional()
+});
+
 export const messageRequestSchema = z.object({
   from: z.string()
     .regex(/^\+?[1-9]\d{1,14}$|^[A-Za-z0-9]{1,11}$/, "Must be an E.164 phone number or alphanumeric sender ID"),
@@ -53,4 +81,11 @@ export const messageRequestSchema = z.object({
   type: z.enum(['SMS', 'MMS']).default('SMS'),
   media_urls: z.array(z.string().url()).optional(),
   subject: z.string().optional(),
-}); 
+});
+
+// Type exports
+export type MessageType = z.infer<typeof messageTypeSchema>;
+export type NotificationPayload = z.infer<typeof notificationPayloadSchema>;
+export type NotificationResponse = z.infer<typeof notificationResponseSchema>;
+export type TelnyxSMSResponse = z.infer<typeof telnyxSMSResponseSchema>;
+export type TelnyxCallResponse = z.infer<typeof telnyxCallResponseSchema>; 

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase";
-import { experimental_taintObjectReference } from "react";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
@@ -24,12 +23,6 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-
-    // Prevent sensitive data from being exposed
-    experimental_taintObjectReference(
-      'Do not pass raw sound data to client',
-      sounds
-    );
 
     return new NextResponse(
       JSON.stringify({

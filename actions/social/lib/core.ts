@@ -2,9 +2,10 @@
 
 import { createServerSupabaseClient } from '@/lib/supabase';
 import { logError } from '@/lib/logger';
+import type { SocialState, SocialMonitoringConfig } from '../types';
 
 // Start social monitoring
-export async function startSocialMonitoring() {
+export async function startSocialMonitoring(): Promise<SocialState> {
   try {
     const supabase = await createServerSupabaseClient();
     const { data: alerts } = await supabase
@@ -24,17 +25,17 @@ export async function startSocialMonitoring() {
     return { success: true };
   } catch (error) {
     logError('Error in social monitoring:', error);
-    return { error: 'Failed to monitor social feeds' };
+    return { success: false, error: 'Failed to monitor social feeds' };
   }
 }
 
 // Stop social monitoring (no-op since we're using SSE)
-export async function stopSocialMonitoring() {
+export async function stopSocialMonitoring(): Promise<SocialState> {
   return { success: true };
 }
 
 // Monitor social media for keywords
-export async function monitorSocial(platform: string, keyword: string) {
+export async function monitorSocial(platform: string, keyword: string): Promise<SocialState> {
   try {
     const supabase = await createServerSupabaseClient();
     
@@ -50,6 +51,6 @@ export async function monitorSocial(platform: string, keyword: string) {
     return { success: true };
   } catch (error) {
     logError('Error monitoring social media:', error);
-    return { error: 'Failed to monitor social media' };
+    return { success: false, error: 'Failed to monitor social media' };
   }
-}
+} 

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase";
-import { experimental_taintObjectReference } from "react";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
@@ -38,12 +37,6 @@ export async function GET(request: NextRequest) {
       ownedTeams: ownedTeams || [],
       memberTeams: memberTeams.map((m) => ({ ...m.teams, userRole: m.role })),
     };
-
-    // Prevent sensitive team data from being exposed
-    experimental_taintObjectReference(
-      'Do not pass raw team data to client',
-      teams
-    );
 
     return new NextResponse(
       JSON.stringify(teams),
