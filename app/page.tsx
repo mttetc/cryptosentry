@@ -12,12 +12,12 @@ function WaitlistHero() {
       <span className="mb-4 inline-flex items-center rounded-full bg-primary/10 px-4 py-1 text-sm font-medium text-primary">
         Coming Soon
       </span>
-      <h1 className="mb-6 text-5xl font-bold">
-        Monitor Crypto Influencers & Get Instant Price Alerts
+      <h1 className="font-display mb-6 text-4xl font-semibold leading-[1.1] tracking-tight md:text-5xl md:leading-[1.1]">
+        Monitor Crypto Influencers <br className="hidden md:inline" />& Get Instant Price Alerts
       </h1>
       <p className="mx-auto mb-12 max-w-2xl text-xl text-muted-foreground">
-        Get instant phone calls or SMS when key influencers mention specific tokens or when prices
-        hit your targets.
+        Get instant notifications via SMS and phone calls when key influencers mention tokens or
+        when prices hit your targets. Combine both for powerful market insights.
       </p>
       <div className="mx-auto max-w-md">
         <WaitlistForm />
@@ -29,12 +29,12 @@ function WaitlistHero() {
 function AppHero() {
   return (
     <section className="mx-auto mb-16 max-w-4xl text-center">
-      <h1 className="mb-6 text-5xl font-bold">
-        Monitor Crypto Influencers & Get Instant Price Alerts
+      <h1 className="font-display mb-6 text-4xl font-semibold leading-[1.1] tracking-tight md:text-5xl md:leading-[1.1]">
+        Monitor Crypto Influencers <br className="hidden md:inline" />& Get Instant Price Alerts
       </h1>
       <p className="mb-8 text-xl text-muted-foreground">
-        Get notified instantly when key crypto influencers post about specific tokens, or when
-        prices hit your targets. Receive alerts via phone call or SMS.
+        Stay ahead with combined social and price monitoring. Get instant notifications via SMS and
+        phone calls when influencers mention tokens or when prices reach your targets.
       </p>
       <div className="flex justify-center gap-4">
         <Link href="/dashboard">
@@ -58,35 +58,39 @@ export default function LandingPage() {
         <section className="mx-auto mb-16 grid max-w-5xl gap-8 md:grid-cols-3">
           <div className="rounded-lg border bg-card p-6">
             <X className="mb-4 h-12 w-12 text-primary" />
-            <h3 className="mb-3 text-xl font-semibold">X Account Monitoring</h3>
+            <h3 className="font-display mb-3 text-xl font-semibold tracking-tight">
+              X Account Monitoring
+            </h3>
             <p className="text-muted-foreground">
-              Track posts from any crypto influencer or project account. Get instant alerts when
-              they mention specific tokens or topics.
+              Track posts from key crypto influencers and project accounts. Create powerful alerts
+              by combining social signals with price targets.
             </p>
           </div>
 
           <div className="rounded-lg border bg-card p-6">
             <LineChart className="mb-4 h-12 w-12 text-primary" />
-            <h3 className="mb-3 text-xl font-semibold">Price Alerts</h3>
+            <h3 className="font-display mb-3 text-xl font-semibold tracking-tight">Price Alerts</h3>
             <p className="text-muted-foreground">
-              Set custom price targets for any cryptocurrency. Get notified when prices cross your
-              thresholds.
+              Set custom price targets for any cryptocurrency. Combine with social monitoring to
+              validate market movements.
             </p>
           </div>
 
           <div className="rounded-lg border bg-card p-6">
             <Bell className="mb-4 h-12 w-12 text-primary" />
-            <h3 className="mb-3 text-xl font-semibold">Instant Notifications</h3>
+            <h3 className="font-display mb-3 text-xl font-semibold tracking-tight">
+              Instant Notifications
+            </h3>
             <p className="text-muted-foreground">
-              Choose between SMS or phone calls for alerts. Never miss a critical market movement or
-              influencer post.
+              Receive both SMS and phone call alerts. Stay informed of critical market movements and
+              influential social signals 24/7.
             </p>
           </div>
         </section>
 
         <section className="mx-auto mb-16 max-w-5xl">
           <div className="mb-12 text-center">
-            <h2 className="mb-4 text-3xl font-bold">How It Works</h2>
+            <h2 className="font-display mb-4 text-3xl font-bold tracking-tight">How It Works</h2>
             <p className="text-xl text-muted-foreground">
               Start monitoring crypto influencers and prices in minutes
             </p>
@@ -94,7 +98,9 @@ export default function LandingPage() {
 
           <div className="grid gap-12 md:grid-cols-2">
             <div className="space-y-6">
-              <h3 className="mb-4 text-2xl font-semibold">X Account Monitoring</h3>
+              <h3 className="font-display mb-4 text-2xl font-semibold tracking-tight">
+                X Account Monitoring
+              </h3>
               <div className="space-y-4">
                 <div className="flex items-start gap-4">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
@@ -136,7 +142,9 @@ export default function LandingPage() {
             </div>
 
             <div className="space-y-6">
-              <h3 className="mb-4 text-2xl font-semibold">Price Monitoring</h3>
+              <h3 className="font-display mb-4 text-2xl font-semibold tracking-tight">
+                Price Monitoring
+              </h3>
               <div className="space-y-4">
                 <div className="flex items-start gap-4">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">

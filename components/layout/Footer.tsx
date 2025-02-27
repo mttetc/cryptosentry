@@ -13,7 +13,7 @@ export default function Footer() {
               Terms of Service
             </a>
           </div>
-          <div>© {new Date().getFullYear()} Social Monitor. All rights reserved.</div>
+          <div>© {new Date().getFullYear()} CryptoSentry. All rights reserved.</div>
         </div>
       </div>
     </footer>
