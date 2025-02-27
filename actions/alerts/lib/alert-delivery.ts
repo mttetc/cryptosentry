@@ -1,6 +1,6 @@
 'use server';
 
-import { createServerSupabaseClient } from '@/lib/supabase';
+import { createServerSupabaseClient } from '@/lib/supabase-server';
 import { telnyxProvider } from '@/actions/messaging/providers/telnyx';
 import { checkUserPreferences, formatAlertMessage } from '@/lib/notification-utils';
 import type { AlertNotification, NotificationResult } from '../schemas';
@@ -13,7 +13,7 @@ export const alertDeliveryLogSchema = z.object({
   type: z.enum(['price', 'social']),
   channel: z.enum(['sms', 'call']),
   message_id: z.string(),
-  data: z.record(z.any())
+  data: z.record(z.any()),
 });
 
 export type AlertDeliveryLog = z.infer<typeof alertDeliveryLogSchema>;
@@ -36,7 +36,7 @@ export async function deliverAlert(alert: AlertNotification): Promise<Notificati
       const response = await telnyxProvider.sendSMS({
         userId: alert.userId,
         phone: prefs.phone,
-        message
+        message,
       });
 
       if (!response.messageId) {
@@ -50,7 +50,7 @@ export async function deliverAlert(alert: AlertNotification): Promise<Notificati
         type: alert.type,
         channel: 'sms',
         message_id: response.messageId,
-        data: alert.data
+        data: alert.data,
       });
 
       return { success: true, notificationId: response.messageId };
@@ -59,7 +59,7 @@ export async function deliverAlert(alert: AlertNotification): Promise<Notificati
         userId: alert.userId,
         phone: prefs.phone,
         message,
-        recipientType: 'human_residence'
+        recipientType: 'human_residence',
       });
 
       if (!response.callId) {
@@ -73,7 +73,7 @@ export async function deliverAlert(alert: AlertNotification): Promise<Notificati
         type: alert.type,
         channel: 'call',
         message_id: response.callId,
-        data: alert.data
+        data: alert.data,
       });
 
       return { success: true, notificationId: response.callId };
@@ -82,7 +82,7 @@ export async function deliverAlert(alert: AlertNotification): Promise<Notificati
     console.error('Failed to deliver alert:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to deliver alert'
+      error: error instanceof Error ? error.message : 'Failed to deliver alert',
     };
   }
 }
@@ -91,4 +91,4 @@ async function logAlertDelivery(data: AlertDeliveryLog): Promise<void> {
   const supabase = await createServerSupabaseClient();
   const validatedData = alertDeliveryLogSchema.parse(data);
   await supabase.from('alert_deliveries').insert(validatedData);
-} 
+}

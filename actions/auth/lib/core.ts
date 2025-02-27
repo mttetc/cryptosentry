@@ -1,6 +1,6 @@
 'use server';
 
-import { createServerSupabaseClient } from '@/lib/supabase';
+import { createServerSupabaseClient } from '@/lib/supabase-server';
 import { revalidatePath } from 'next/cache';
 import type { AuthState } from '../types';
 import { signUpSchema, signInSchema } from '../types';
@@ -93,4 +93,4 @@ export async function signOut(): Promise<AuthState> {
       error: error instanceof Error ? error.message : 'Failed to sign out',
     };
   }
-} 
+}

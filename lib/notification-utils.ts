@@ -1,5 +1,7 @@
+'use server';
+
 import { z } from 'zod';
-import { createServerSupabaseClient } from '@/lib/supabase';
+import { createServerSupabaseClient } from '@/lib/supabase-server';
 
 export const userContactPreferencesSchema = z.object({
   phone: z.string().min(1),
@@ -9,23 +11,23 @@ export const userContactPreferencesSchema = z.object({
   quiet_hours_end: z.string().nullable(),
   weekends_enabled: z.boolean(),
   canSend: z.boolean(),
-  reason: z.string().optional()
+  reason: z.string().optional(),
 });
 
 export type UserContactPreferences = z.infer<typeof userContactPreferencesSchema>;
 
 function isWithinQuietHours(prefs: UserContactPreferences): boolean {
   if (!prefs.quiet_hours_start || !prefs.quiet_hours_end) return false;
-  
+
   const now = new Date();
   const start = new Date();
   const end = new Date();
   const [startHour, startMinute] = prefs.quiet_hours_start.split(':').map(Number);
   const [endHour, endMinute] = prefs.quiet_hours_end.split(':').map(Number);
-  
+
   start.setHours(startHour, startMinute, 0);
   end.setHours(endHour, endMinute, 0);
-  
+
   return now >= start && now <= end;
 }
 
@@ -42,15 +44,15 @@ export async function checkUserPreferences(userId: string): Promise<UserContactP
 
     const prefs = userContactPreferencesSchema.parse({
       ...data,
-      canSend: true
+      canSend: true,
     });
-    
+
     // Check if notifications are allowed
     if (!prefs.active_24h) {
       return userContactPreferencesSchema.parse({
         ...prefs,
         canSend: false,
-        reason: 'Notifications are disabled'
+        reason: 'Notifications are disabled',
       });
     }
 
@@ -61,7 +63,7 @@ export async function checkUserPreferences(userId: string): Promise<UserContactP
       return userContactPreferencesSchema.parse({
         ...prefs,
         canSend: false,
-        reason: 'Weekend notifications are disabled'
+        reason: 'Weekend notifications are disabled',
       });
     }
 
@@ -70,7 +72,7 @@ export async function checkUserPreferences(userId: string): Promise<UserContactP
       return userContactPreferencesSchema.parse({
         ...prefs,
         canSend: false,
-        reason: 'Currently in quiet hours'
+        reason: 'Currently in quiet hours',
       });
     }
 
@@ -92,4 +94,4 @@ export function formatAlertMessage(type: 'price' | 'social', data: Record<string
   }
 
   return 'Alert triggered';
-} 
+}

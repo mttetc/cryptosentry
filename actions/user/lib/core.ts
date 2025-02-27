@@ -1,6 +1,6 @@
 'use server';
 
-import { createServerSupabaseClient } from '@/lib/supabase';
+import { createServerSupabaseClient } from '@/lib/supabase-server';
 import type { NotificationPreferences, UserState } from '../types';
 import { notificationPreferencesSchema } from '../types';
 
@@ -9,26 +9,26 @@ export async function updateUserPreferences(
 ): Promise<UserState> {
   try {
     const validatedPrefs = notificationPreferencesSchema.parse(preferences);
-    
+
     const supabase = await createServerSupabaseClient();
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
 
     if (!session?.user.id) {
       throw new Error('Unauthorized');
     }
 
-    const { error } = await supabase
-      .from('user_notification_settings')
-      .upsert({
-        user_id: session.user.id,
-        phone: validatedPrefs.phone,
-        prefer_sms: validatedPrefs.prefer_sms,
-        active_24h: validatedPrefs.active_24h,
-        quiet_hours_start: validatedPrefs.quiet_hours_start,
-        quiet_hours_end: validatedPrefs.quiet_hours_end,
-        weekends_enabled: validatedPrefs.weekends_enabled,
-        updated_at: new Date().toISOString(),
-      });
+    const { error } = await supabase.from('user_notification_settings').upsert({
+      user_id: session.user.id,
+      phone: validatedPrefs.phone,
+      prefer_sms: validatedPrefs.prefer_sms,
+      active_24h: validatedPrefs.active_24h,
+      quiet_hours_start: validatedPrefs.quiet_hours_start,
+      quiet_hours_end: validatedPrefs.quiet_hours_end,
+      weekends_enabled: validatedPrefs.weekends_enabled,
+      updated_at: new Date().toISOString(),
+    });
 
     if (error) throw error;
 
@@ -45,7 +45,9 @@ export async function updateUserPreferences(
 export async function getUserPreferences(): Promise<NotificationPreferences | null> {
   try {
     const supabase = await createServerSupabaseClient();
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
 
     if (!session?.user.id) {
       return null;
@@ -64,4 +66,4 @@ export async function getUserPreferences(): Promise<NotificationPreferences | nu
     console.error('Failed to get preferences:', error);
     return null;
   }
-} 
+}

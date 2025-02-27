@@ -1,7 +1,7 @@
 'use server';
 
 import { NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase';
+import { createServerSupabaseClient } from '@/lib/supabase-server';
 import { handleMonitorEvent } from '@/actions/monitor/lib/core';
 
 export const runtime = 'edge';
@@ -42,4 +42,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-} 
+}

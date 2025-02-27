@@ -1,7 +1,15 @@
 'use server';
 
-import { MessagingProvider, CallOptions, SMSOptions, CallResponse, SMSResponse, TelnyxMessageResponse, TelnyxWebhookPayload } from '../types';
-import { createServerSupabaseClient } from '@/lib/supabase';
+import {
+  MessagingProvider,
+  CallOptions,
+  SMSOptions,
+  CallResponse,
+  SMSResponse,
+  TelnyxMessageResponse,
+  TelnyxWebhookPayload,
+} from '../types';
+import { createServerSupabaseClient } from '@/lib/supabase-server';
 import { messageRequestSchema, telnyxCallPayloadSchema } from '../schemas';
 import { createPublicKey, verify } from 'crypto';
 import { Buffer } from 'buffer';
@@ -13,20 +21,17 @@ const TELNYX_PUBLIC_KEY = process.env.TELNYX_PUBLIC_KEY!;
 const TELNYX_API_BASE = process.env.TELNYX_API_BASE || 'https://api.telnyx.com/v2';
 
 // Optimize message for TTS based on recipient type
-function optimizeMessage(message: string, recipientType?: 'human_residence' | 'human_business' | 'machine'): string {
+function optimizeMessage(
+  message: string,
+  recipientType?: 'human_residence' | 'human_business' | 'machine'
+): string {
   let optimized = message;
-  
+
   // Format crypto alerts
-  optimized = optimized.replace(
-    /(\w+) price (\w+) \$?([\d,.]+)/gi,
-    '$1 is now $3 dollars'
-  );
+  optimized = optimized.replace(/(\w+) price (\w+) \$?([\d,.]+)/gi, '$1 is now $3 dollars');
 
   // Format social alerts
-  optimized = optimized.replace(
-    /@(\w+) posted: (.*)/gi,
-    '$1 just posted: $2'
-  );
+  optimized = optimized.replace(/@(\w+) posted: (.*)/gi, '$1 just posted: $2');
 
   // Add pauses between different alerts
   optimized = optimized.replace(/\. /g, '. <break time="0.8s"/> ');
@@ -48,7 +53,7 @@ async function telnyxRequest<T>(
     const response: Response = await fetch(`${TELNYX_API_BASE}${endpoint}`, {
       method,
       headers: {
-        'Authorization': `Bearer ${TELNYX_API_KEY}`,
+        Authorization: `Bearer ${TELNYX_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: requestData ? JSON.stringify(requestData) : undefined,
@@ -86,7 +91,7 @@ export const telnyxProvider: MessagingProvider = {
           'X-User-Id': options.userId,
         },
         tts_voice: SETTINGS.CALL.SPEECH.VOICE,
-        tts_payload: optimizedMessage
+        tts_payload: optimizedMessage,
       };
 
       const validationResult = telnyxCallPayloadSchema.safeParse(callPayload);
@@ -94,16 +99,22 @@ export const telnyxProvider: MessagingProvider = {
       if (!validationResult.success) {
         console.error('Validation error:', validationResult.error);
         return {
-          error: 'Invalid call payload: ' + validationResult.error.errors.map(e => e.message).join(', '),
+          error:
+            'Invalid call payload: ' +
+            validationResult.error.errors.map((e) => e.message).join(', '),
         };
       }
 
       // Make the call using Telnyx's default AMD settings
-      const response = await telnyxRequest<{ data: { id: string } }>('/calls', 'POST', validationResult.data);
+      const response = await telnyxRequest<{ data: { id: string } }>(
+        '/calls',
+        'POST',
+        validationResult.data
+      );
 
       return {
         success: true,
-        callId: response.data.id
+        callId: response.data.id,
       };
     } catch (error) {
       console.error('Error making call:', error);
@@ -128,15 +139,21 @@ export const telnyxProvider: MessagingProvider = {
       if (!validationResult.success) {
         console.error('Validation error:', validationResult.error);
         return {
-          error: 'Invalid message request: ' + validationResult.error.errors.map(e => e.message).join(', '),
+          error:
+            'Invalid message request: ' +
+            validationResult.error.errors.map((e) => e.message).join(', '),
         };
       }
 
-      const response = await telnyxRequest<TelnyxMessageResponse>('/messages', 'POST', validationResult.data);
+      const response = await telnyxRequest<TelnyxMessageResponse>(
+        '/messages',
+        'POST',
+        validationResult.data
+      );
 
-      return { 
-        success: true, 
-        messageId: response.id
+      return {
+        success: true,
+        messageId: response.id,
       };
     } catch (error) {
       console.error('Error sending SMS:', error);
@@ -172,7 +189,6 @@ export const telnyxProvider: MessagingProvider = {
         recorded: payload.payload.recorded,
         created_at: new Date().toISOString(),
       });
-
     } catch (error) {
       console.error('Error handling call webhook:', error);
     }
@@ -200,7 +216,6 @@ export const telnyxProvider: MessagingProvider = {
         cost: payload.payload.cost,
         created_at: new Date().toISOString(),
       });
-
     } catch (error) {
       console.error('Error handling SMS webhook:', error);
     }
@@ -214,15 +229,10 @@ export const telnyxProvider: MessagingProvider = {
         type: 'spki',
       });
 
-      return verify(
-        'sha256',
-        Buffer.from(payload),
-        publicKey,
-        Buffer.from(signature, 'base64')
-      );
+      return verify('sha256', Buffer.from(payload), publicKey, Buffer.from(signature, 'base64'));
     } catch (error) {
       console.error('Error verifying webhook signature:', error);
       return false;
     }
-  }
-}; 
+  },
+};

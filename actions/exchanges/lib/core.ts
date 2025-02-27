@@ -1,7 +1,7 @@
 'use server';
 
 import { monitorPrice } from '@/actions/monitor/lib/core';
-import { createServerSupabaseClient } from '@/lib/supabase';
+import { createServerSupabaseClient } from '@/lib/supabase-server';
 import type { ExchangeState, PriceAlert } from '../types';
 
 // Start price monitoring

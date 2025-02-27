@@ -1,9 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase";
-import { SETTINGS } from "@/config/messaging";
+'use server';
 
-export const runtime = "edge";
-export const dynamic = "force-dynamic";
+import { NextRequest, NextResponse } from 'next/server';
+import { createServerSupabaseClient } from '@/lib/supabase-server';
+import { SETTINGS } from '@/config/messaging';
+
+export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
 
 interface UsageLimits {
   count: number;
@@ -22,13 +24,12 @@ interface UsageLimits {
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createServerSupabaseClient();
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
 
     if (!session?.user.id) {
-      return new NextResponse(
-        JSON.stringify({ error: "Unauthorized" }),
-        { status: 401 }
-      );
+      return new NextResponse(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
     }
 
     // Get parameters from query
@@ -37,14 +38,13 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get('type') as 'call' | 'sms';
 
     if (!phone || !type || !['call', 'sms'].includes(type)) {
-      return new NextResponse(
-        JSON.stringify({ error: "Missing or invalid parameters" }),
-        { status: 400 }
-      );
+      return new NextResponse(JSON.stringify({ error: 'Missing or invalid parameters' }), {
+        status: 400,
+      });
     }
 
     const today = new Date().toISOString().split('T')[0];
-    
+
     // Get security status first
     const { data: security } = await supabase
       .from('usage_limits')
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
       .eq('phone_number', phone)
       .eq('date', today)
       .single();
-    
+
     // Get or create today's usage record
     const { data: usage, error } = await supabase
       .from('usage_limits')
@@ -63,7 +63,8 @@ export async function GET(request: NextRequest) {
       .eq('date', today)
       .single();
 
-    if (error && error.code !== 'PGRST116') { // Not found error
+    if (error && error.code !== 'PGRST116') {
+      // Not found error
       throw error;
     }
 
@@ -85,7 +86,7 @@ export async function GET(request: NextRequest) {
         .single();
 
       if (insertError) throw insertError;
-      
+
       limits = {
         count: 0,
         lastUsedAt: null,
@@ -101,34 +102,38 @@ export async function GET(request: NextRequest) {
       const count = type === 'call' ? usage.call_count : usage.sms_count;
       const lastUsedAt = type === 'call' ? usage.last_call_at : usage.last_sms_at;
       const limit = type === 'call' ? SETTINGS.CALL.LIMITS.DAILY : SETTINGS.SMS.LIMITS.DAILY;
-      const cooldownDuration = type === 'call' 
-        ? SETTINGS.CALL.COOLDOWN.DURATION 
-        : SETTINGS.SMS.COOLDOWN.DURATION;
+      const cooldownDuration =
+        type === 'call' ? SETTINGS.CALL.COOLDOWN.DURATION : SETTINGS.SMS.COOLDOWN.DURATION;
 
       limits = {
         count,
         lastUsedAt,
         remainingToday: Math.max(0, limit - count),
-        isInCooldown: lastUsedAt ? (Date.now() - new Date(lastUsedAt).getTime()) < cooldownDuration : false,
-        cooldownRemaining: lastUsedAt ? Math.max(0, cooldownDuration - (Date.now() - new Date(lastUsedAt).getTime())) : 0,
+        isInCooldown: lastUsedAt
+          ? Date.now() - new Date(lastUsedAt).getTime() < cooldownDuration
+          : false,
+        cooldownRemaining: lastUsedAt
+          ? Math.max(0, cooldownDuration - (Date.now() - new Date(lastUsedAt).getTime()))
+          : 0,
         isRateLimited: false, // Implement rate limiting logic
         rateLimitReset: 0,
-        isBlocked: security?.blocked_until ? new Date(security.blocked_until).getTime() > Date.now() : false,
+        isBlocked: security?.blocked_until
+          ? new Date(security.blocked_until).getTime() > Date.now()
+          : false,
         blockReason: security?.block_reason,
-        blockRemaining: security?.blocked_until ? Math.max(0, new Date(security.blocked_until).getTime() - Date.now()) : undefined,
+        blockRemaining: security?.blocked_until
+          ? Math.max(0, new Date(security.blocked_until).getTime() - Date.now())
+          : undefined,
         riskScore: security?.risk_score || 0,
       };
     }
 
-    return new NextResponse(
-      JSON.stringify(limits),
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-store, must-revalidate',
-        },
-      }
-    );
+    return new NextResponse(JSON.stringify(limits), {
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-store, must-revalidate',
+      },
+    });
   } catch (error) {
     console.error('Error getting usage limits:', error);
     return new NextResponse(
@@ -138,4 +143,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-} 
+}

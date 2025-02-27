@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { createBrowserSupabaseClient } from '@/lib/supabase';
+import { createBrowserSupabaseClient } from '@/lib/supabase-browser';
 
 interface User {
   id: string;
@@ -16,21 +16,31 @@ export function useUser() {
 
     // Get initial user
     supabase.auth.getUser().then(({ data: { user } }) => {
-      setUser(user ? {
-        id: user.id,
-        email: user.email || undefined,
-        phone: user.phone || undefined,
-      } : null);
+      setUser(
+        user
+          ? {
+              id: user.id,
+              email: user.email || undefined,
+              phone: user.phone || undefined,
+            }
+          : null
+      );
       setLoading(false);
     });
 
     // Listen for changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user ? {
-        id: session.user.id,
-        email: session.user.email || undefined,
-        phone: session.user.phone || undefined,
-      } : null);
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(
+        session?.user
+          ? {
+              id: session.user.id,
+              email: session.user.email || undefined,
+              phone: session.user.phone || undefined,
+            }
+          : null
+      );
       setLoading(false);
     });
 
@@ -40,4 +50,4 @@ export function useUser() {
   }, []);
 
   return { user, loading };
-} 
+}

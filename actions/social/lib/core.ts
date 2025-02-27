@@ -1,6 +1,6 @@
 'use server';
 
-import { createServerSupabaseClient } from '@/lib/supabase';
+import { createServerSupabaseClient } from '@/lib/supabase-server';
 import { logError } from '@/lib/logger';
 import type { SocialState, SocialMonitoringConfig } from '../types';
 
@@ -8,10 +8,7 @@ import type { SocialState, SocialMonitoringConfig } from '../types';
 export async function startSocialMonitoring(): Promise<SocialState> {
   try {
     const supabase = await createServerSupabaseClient();
-    const { data: alerts } = await supabase
-      .from('social_alerts')
-      .select('*')
-      .eq('active', true);
+    const { data: alerts } = await supabase.from('social_alerts').select('*').eq('active', true);
 
     if (!alerts?.length) {
       return { success: true };
@@ -38,19 +35,17 @@ export async function stopSocialMonitoring(): Promise<SocialState> {
 export async function monitorSocial(platform: string, keyword: string): Promise<SocialState> {
   try {
     const supabase = await createServerSupabaseClient();
-    
+
     // Store the monitoring request
-    await supabase
-      .from('social_monitoring')
-      .upsert({
-        platform,
-        keyword,
-        last_checked: new Date().toISOString(),
-      });
+    await supabase.from('social_monitoring').upsert({
+      platform,
+      keyword,
+      last_checked: new Date().toISOString(),
+    });
 
     return { success: true };
   } catch (error) {
     logError('Error monitoring social media:', error);
     return { success: false, error: 'Failed to monitor social media' };
   }
-} 
+}

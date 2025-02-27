@@ -1,7 +1,7 @@
 'use server';
 
 import { NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase';
+import { createServerSupabaseClient } from '@/lib/supabase-server';
 import { SUBSCRIPTION_TIERS } from '@/config/subscriptions';
 import Stripe from 'stripe';
 
@@ -17,23 +17,21 @@ const STRIPE_PRODUCTS = {
 export async function POST(request: Request) {
   try {
     const supabase = await createServerSupabaseClient();
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
 
     if (!session?.user.id) {
-      return new NextResponse(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401 }
-      );
+      return new NextResponse(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
     }
 
     const body = await request.json();
     const { tier } = body as { tier: keyof typeof SUBSCRIPTION_TIERS };
 
     if (!tier || !SUBSCRIPTION_TIERS[tier]) {
-      return new NextResponse(
-        JSON.stringify({ error: 'Invalid subscription tier' }),
-        { status: 400 }
-      );
+      return new NextResponse(JSON.stringify({ error: 'Invalid subscription tier' }), {
+        status: 400,
+      });
     }
 
     // Get or create customer
@@ -61,12 +59,10 @@ export async function POST(request: Request) {
         },
       });
 
-      await supabase
-        .from('stripe_customers')
-        .insert({
-          user_id: session.user.id,
-          stripe_customer_id: newCustomer.id,
-        });
+      await supabase.from('stripe_customers').insert({
+        user_id: session.user.id,
+        stripe_customer_id: newCustomer.id,
+      });
 
       stripeCustomerId = newCustomer.id;
     }
@@ -94,10 +90,7 @@ export async function POST(request: Request) {
       throw new Error('Failed to create checkout session');
     }
 
-    return new NextResponse(
-      JSON.stringify({ url: checkoutSession.url }),
-      { status: 200 }
-    );
+    return new NextResponse(JSON.stringify({ url: checkoutSession.url }), { status: 200 });
   } catch (error) {
     console.error('Error creating subscription:', error);
     return new NextResponse(
@@ -107,4 +100,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-} 
+}

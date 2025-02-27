@@ -1,6 +1,6 @@
 'use server';
 
-import { createServerSupabaseClient } from '@/lib/supabase';
+import { createServerSupabaseClient } from '@/lib/supabase-server';
 import { revalidatePath } from 'next/cache';
 import { priceAlertSchema, socialAlertSchema } from '../schemas';
 import type { z } from 'zod';
@@ -17,7 +17,9 @@ export const initialAlertState: AlertState = {
 
 async function getAuthenticatedClient() {
   const supabase = await createServerSupabaseClient();
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
   if (!session?.user.id) {
     throw new Error('Unauthorized');
@@ -26,7 +28,9 @@ async function getAuthenticatedClient() {
   return { supabase, userId: session.user.id };
 }
 
-export async function createPriceAlert(input: z.infer<typeof priceAlertSchema>): Promise<AlertState> {
+export async function createPriceAlert(
+  input: z.infer<typeof priceAlertSchema>
+): Promise<AlertState> {
   try {
     const { supabase, userId } = await getAuthenticatedClient();
     const validated = priceAlertSchema.parse(input);
@@ -56,7 +60,9 @@ export async function createPriceAlert(input: z.infer<typeof priceAlertSchema>):
   }
 }
 
-export async function createSocialAlert(input: z.infer<typeof socialAlertSchema>): Promise<AlertState> {
+export async function createSocialAlert(
+  input: z.infer<typeof socialAlertSchema>
+): Promise<AlertState> {
   try {
     const { supabase, userId } = await getAuthenticatedClient();
     const validated = socialAlertSchema.parse(input);
@@ -90,16 +96,8 @@ export async function getActiveAlerts() {
     const { supabase, userId } = await getAuthenticatedClient();
 
     const [priceAlerts, socialAlerts] = await Promise.all([
-      supabase
-        .from('price_alerts')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('active', true),
-      supabase
-        .from('social_alerts')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('active', true),
+      supabase.from('price_alerts').select('*').eq('user_id', userId).eq('active', true),
+      supabase.from('social_alerts').select('*').eq('user_id', userId).eq('active', true),
     ]);
 
     return {
@@ -110,4 +108,4 @@ export async function getActiveAlerts() {
     console.error('Failed to get active alerts:', error);
     return { price: [], social: [] };
   }
-} 
+}

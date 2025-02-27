@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
-import { useFormState, useFormStatus } from 'react-dom';
 import { signIn, signUp } from '@/actions/auth';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { useActionState, useState } from 'react';
+import { useFormStatus } from 'react-dom';
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -19,8 +19,8 @@ function SubmitButton() {
 
 export function AuthForm() {
   const [isSignUp, setIsSignUp] = useState(false);
-  const [signInState, signInAction] = useFormState(signIn, { error: undefined, success: false });
-  const [signUpState, signUpAction] = useFormState(signUp, { error: undefined, success: false });
+  const [signInState, signInAction] = useActionState(signIn, { error: undefined, success: false });
+  const [signUpState, signUpAction] = useActionState(signUp, { error: undefined, success: false });
   const { toast } = useToast();
 
   // Show error or success messages
@@ -44,9 +44,7 @@ export function AuthForm() {
       <CardHeader>
         <CardTitle>{isSignUp ? 'Create Account' : 'Sign In'}</CardTitle>
         <CardDescription>
-          {isSignUp
-            ? 'Create a new account to get started'
-            : 'Sign in to your account to continue'}
+          {isSignUp ? 'Create a new account to get started' : 'Sign in to your account to continue'}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -94,4 +92,4 @@ export function AuthForm() {
       </CardContent>
     </Card>
   );
-} 
+}

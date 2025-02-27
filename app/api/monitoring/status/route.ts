@@ -1,16 +1,19 @@
-import { NextRequest, NextResponse } from "next/server";
-import { monitorPrice } from "@/actions/alerts";
-import { createServerSupabaseClient } from "@/lib/supabase";
-import { config } from "@/actions/monitor/config";
+import { NextRequest, NextResponse } from 'next/server';
+import { monitorPrice } from '@/actions/alerts';
+import { createServerSupabaseClient } from '@/lib/supabase-server';
+import { config } from '@/actions/monitor/config';
 
-export const runtime = "edge";
-export const dynamic = "force-dynamic";
+export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
 
 // Keep track of active connections with their cleanup functions
-const CONNECTIONS = new Map<string, {
-  controller: ReadableStreamController<any>;
-  intervals: NodeJS.Timeout[];
-}>();
+const CONNECTIONS = new Map<
+  string,
+  {
+    controller: ReadableStreamController<any>;
+    intervals: NodeJS.Timeout[];
+  }
+>();
 
 // Constants
 const PRICE_INTERVAL = config.sse.interval;
@@ -19,12 +22,14 @@ const SOCIAL_INTERVAL = config.sse.interval * 2;
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createServerSupabaseClient();
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
 
     if (!session?.user.id) {
-      return new NextResponse(JSON.stringify({ error: "Unauthorized" }), {
+      return new NextResponse(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
-        headers: { "Content-Type": "application/json" },
+        headers: { 'Content-Type': 'application/json' },
       });
     }
 
@@ -41,36 +46,36 @@ export async function GET(request: NextRequest) {
           });
 
           // Send initial connection message
-          controller.enqueue(encodeSSE("init", { status: "connected", connectionId }));
+          controller.enqueue(encodeSSE('init', { status: 'connected', connectionId }));
 
           // Set up price monitoring
           const priceMonitoring = async () => {
             try {
               const { data: alerts } = await supabase
-                .from("price_alerts")
-                .select("*")
-                .eq("user_id", session.user.id)
-                .eq("active", true);
+                .from('price_alerts')
+                .select('*')
+                .eq('user_id', session.user.id)
+                .eq('active', true);
 
               if (alerts?.length) {
                 // Get latest prices for all symbols
-                const symbols = [...new Set(alerts.map(a => a.symbol))];
+                const symbols = [...new Set(alerts.map((a) => a.symbol))];
                 const pricePromises = symbols.map(async (symbol) => {
                   const { data: price } = await supabase
-                    .from("price_monitoring")
-                    .select("*")
-                    .eq("symbol", symbol)
-                    .order("timestamp", { ascending: false })
+                    .from('price_monitoring')
+                    .select('*')
+                    .eq('symbol', symbol)
+                    .order('timestamp', { ascending: false })
                     .limit(1)
                     .single();
                   return price;
                 });
 
                 const prices = await Promise.all(pricePromises);
-                const validPrices = prices.filter(p => p !== null);
+                const validPrices = prices.filter((p) => p !== null);
 
                 controller.enqueue(
-                  encodeSSE("price_update", {
+                  encodeSSE('price_update', {
                     alerts,
                     prices: validPrices,
                     timestamp: Date.now(),
@@ -78,11 +83,11 @@ export async function GET(request: NextRequest) {
                 );
               }
             } catch (error) {
-              console.error("Price monitoring error:", error);
+              console.error('Price monitoring error:', error);
               controller.enqueue(
-                encodeSSE("error", {
-                  type: "price_monitoring",
-                  message: "Failed to fetch price updates",
+                encodeSSE('error', {
+                  type: 'price_monitoring',
+                  message: 'Failed to fetch price updates',
                 })
               );
             }
@@ -92,30 +97,30 @@ export async function GET(request: NextRequest) {
           const socialMonitoring = async () => {
             try {
               const { data: alerts } = await supabase
-                .from("social_alerts")
-                .select("*")
-                .eq("user_id", session.user.id)
-                .eq("active", true);
+                .from('social_alerts')
+                .select('*')
+                .eq('user_id', session.user.id)
+                .eq('active', true);
 
               if (alerts?.length) {
                 // Get latest social monitoring data
-                const platforms = [...new Set(alerts.map(a => a.platform))];
+                const platforms = [...new Set(alerts.map((a) => a.platform))];
                 const monitoringPromises = platforms.map(async (platform) => {
                   const { data: monitoring } = await supabase
-                    .from("social_monitoring")
-                    .select("*")
-                    .eq("platform", platform)
-                    .order("last_checked", { ascending: false })
+                    .from('social_monitoring')
+                    .select('*')
+                    .eq('platform', platform)
+                    .order('last_checked', { ascending: false })
                     .limit(1)
                     .single();
                   return monitoring;
                 });
 
                 const monitoringData = await Promise.all(monitoringPromises);
-                const validData = monitoringData.filter(d => d !== null);
+                const validData = monitoringData.filter((d) => d !== null);
 
                 controller.enqueue(
-                  encodeSSE("social_update", {
+                  encodeSSE('social_update', {
                     alerts,
                     monitoring: validData,
                     timestamp: Date.now(),
@@ -123,11 +128,11 @@ export async function GET(request: NextRequest) {
                 );
               }
             } catch (error) {
-              console.error("Social monitoring error:", error);
+              console.error('Social monitoring error:', error);
               controller.enqueue(
-                encodeSSE("error", {
-                  type: "social_monitoring",
-                  message: "Failed to fetch social updates",
+                encodeSSE('error', {
+                  type: 'social_monitoring',
+                  message: 'Failed to fetch social updates',
                 })
               );
             }
@@ -146,16 +151,15 @@ export async function GET(request: NextRequest) {
           }
 
           // Cleanup on close
-          request.signal.addEventListener("abort", () => {
+          request.signal.addEventListener('abort', () => {
             cleanup(connectionId);
           });
-
         } catch (error) {
-          console.error("Stream error:", error);
+          console.error('Stream error:', error);
           controller.enqueue(
-            encodeSSE("error", {
-              type: "stream",
-              message: "Stream interrupted",
+            encodeSSE('error', {
+              type: 'stream',
+              message: 'Stream interrupted',
             })
           );
           cleanup(connectionId);
@@ -165,22 +169,19 @@ export async function GET(request: NextRequest) {
 
     return new NextResponse(stream, {
       headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Cache-Control": "no-cache, no-transform",
-        "Connection": "keep-alive",
-        "Content-Type": "text/event-stream",
-        "X-Accel-Buffering": "no", // Disable buffering in Nginx
+        'Access-Control-Allow-Origin': '*',
+        'Cache-Control': 'no-cache, no-transform',
+        Connection: 'keep-alive',
+        'Content-Type': 'text/event-stream',
+        'X-Accel-Buffering': 'no', // Disable buffering in Nginx
       },
     });
   } catch (error) {
-    console.error("Server error:", error);
-    return new NextResponse(
-      JSON.stringify({ error: "Internal Server Error" }),
-      {
-        headers: { "Content-Type": "application/json" },
-        status: 500,
-      }
-    );
+    console.error('Server error:', error);
+    return new NextResponse(JSON.stringify({ error: 'Internal Server Error' }), {
+      headers: { 'Content-Type': 'application/json' },
+      status: 500,
+    });
   }
 }
 
@@ -204,7 +205,5 @@ function cleanup(connectionId: string) {
  * @returns Encoded SSE string
  */
 function encodeSSE(event: string, data: any): Uint8Array {
-  return new TextEncoder().encode(
-    `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`
-  );
+  return new TextEncoder().encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 }

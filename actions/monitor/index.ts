@@ -1,6 +1,6 @@
 'use server';
 
-import { createServerSupabaseClient } from '@/lib/supabase';
+import { createServerSupabaseClient } from '@/lib/supabase-server';
 import { startPriceMonitoring } from '@/actions/exchanges';
 import { startSocialMonitoring } from '@/actions/social';
 import { logError } from '@/lib/logger';
@@ -26,11 +26,7 @@ export async function startMonitoring(): Promise<{ success: boolean; error?: str
       if (error) throw error;
 
       // Initialize monitoring services
-      await Promise.all([
-        startPriceMonitoring(),
-        startSocialMonitoring(),
-      ]);
-
+      await Promise.all([startPriceMonitoring(), startSocialMonitoring()]);
     } catch (error) {
       logError('Failed to initialize monitoring service:', error);
       throw error;
@@ -46,6 +42,6 @@ export async function startMonitoring(): Promise<{ success: boolean; error?: str
 }
 
 // Initialize monitoring on server start
-startMonitoring().catch(error => {
+startMonitoring().catch((error) => {
   logError('Failed to initialize monitoring:', error);
 });

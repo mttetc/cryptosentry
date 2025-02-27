@@ -1,33 +1,26 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase";
+'use server';
 
-export const runtime = "edge";
-export const dynamic = "force-dynamic";
+import { NextRequest, NextResponse } from 'next/server';
+import { createServerSupabaseClient } from '@/lib/supabase-server';
+
+export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createServerSupabaseClient();
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
 
     if (!session?.user.id) {
-      return new NextResponse(
-        JSON.stringify({ error: "Unauthorized" }),
-        { status: 401 }
-      );
+      return new NextResponse(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
     }
 
     // Get active alerts count
     const [priceAlerts, socialAlerts] = await Promise.all([
-      supabase
-        .from('price_alerts')
-        .select('count')
-        .eq('active', true)
-        .single(),
-      supabase
-        .from('social_alerts')
-        .select('count')
-        .eq('active', true)
-        .single(),
+      supabase.from('price_alerts').select('count').eq('active', true).single(),
+      supabase.from('social_alerts').select('count').eq('active', true).single(),
     ]);
 
     // Get system metrics
@@ -52,15 +45,12 @@ export async function GET(request: NextRequest) {
       timestamp: Date.now(),
     };
 
-    return new NextResponse(
-      JSON.stringify(response),
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-store, must-revalidate',
-        },
-      }
-    );
+    return new NextResponse(JSON.stringify(response), {
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-store, must-revalidate',
+      },
+    });
   } catch (error) {
     console.error('Error getting system health:', error);
     return new NextResponse(
@@ -74,5 +64,5 @@ export async function GET(request: NextRequest) {
 
 function calculateHealthScore(alertCount: number): number {
   // Each alert reduces health by 10%
-  return Math.max(0, 100 - (alertCount * 10));
-} 
+  return Math.max(0, 100 - alertCount * 10);
+}

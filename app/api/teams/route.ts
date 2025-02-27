@@ -1,19 +1,20 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase";
+'use server';
 
-export const runtime = "edge";
-export const dynamic = "force-dynamic";
+import { NextRequest, NextResponse } from 'next/server';
+import { createServerSupabaseClient } from '@/lib/supabase-server';
+
+export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createServerSupabaseClient();
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
 
     if (!session?.user.id) {
-      return new NextResponse(
-        JSON.stringify({ error: "Unauthorized" }),
-        { status: 401 }
-      );
+      return new NextResponse(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
     }
 
     // Get teams user owns
@@ -38,15 +39,12 @@ export async function GET(request: NextRequest) {
       memberTeams: memberTeams.map((m) => ({ ...m.teams, userRole: m.role })),
     };
 
-    return new NextResponse(
-      JSON.stringify(teams),
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-store, must-revalidate',
-        },
-      }
-    );
+    return new NextResponse(JSON.stringify(teams), {
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-store, must-revalidate',
+      },
+    });
   } catch (error) {
     console.error('Error fetching teams:', error);
     return new NextResponse(
@@ -56,4 +54,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-} 
+}

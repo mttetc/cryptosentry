@@ -1,6 +1,6 @@
 'use server';
 
-import { createServerSupabaseClient } from '@/lib/supabase';
+import { createServerSupabaseClient } from '@/lib/supabase-server';
 import { getActiveAlerts } from '@/actions/alerts/lib/core';
 import { deliverAlert } from '@/actions/alerts/lib/alert-delivery';
 import type { AlertCondition } from '@/actions/alerts/schemas';
@@ -56,21 +56,22 @@ async function checkPriceCondition(
 export async function monitorPrice(symbol: string, currentPrice: number): Promise<MonitorState> {
   try {
     const supabase = await createServerSupabaseClient();
-    
+
     // Update latest price
-    await supabase
-      .from('latest_prices')
-      .upsert({
+    await supabase.from('latest_prices').upsert(
+      {
         symbol: symbol.toUpperCase(),
         price: currentPrice,
         updated_at: new Date().toISOString(),
-      }, {
+      },
+      {
         onConflict: 'symbol',
-      });
+      }
+    );
 
     // Get active alerts for this symbol
     const { price: priceAlerts } = await getActiveAlerts();
-    const relevantAlerts = priceAlerts.filter(alert => alert.symbol === symbol);
+    const relevantAlerts = priceAlerts.filter((alert) => alert.symbol === symbol);
 
     // Check each alert condition
     for (const alert of relevantAlerts) {
@@ -91,25 +92,20 @@ export async function monitorPrice(symbol: string, currentPrice: number): Promis
             symbol,
             price: currentPrice,
             condition: alert.condition,
-            targetPrice: alert.target_price
-          }
+            targetPrice: alert.target_price,
+          },
         });
 
         // Record the trigger
-        await supabase
-          .from('alert_triggers')
-          .insert({
-            alert_id: alert.id,
-            triggered_at: new Date().toISOString(),
-            price: currentPrice,
-          });
+        await supabase.from('alert_triggers').insert({
+          alert_id: alert.id,
+          triggered_at: new Date().toISOString(),
+          price: currentPrice,
+        });
 
         // Optionally deactivate one-time alerts
         if (!alert.is_recurring) {
-          await supabase
-            .from('price_alerts')
-            .update({ active: false })
-            .eq('id', alert.id);
+          await supabase.from('price_alerts').update({ active: false }).eq('id', alert.id);
         }
       }
     }
@@ -127,14 +123,14 @@ export async function monitorPrice(symbol: string, currentPrice: number): Promis
 export async function monitorSocial(account: string, content: string): Promise<MonitorState> {
   try {
     const supabase = await createServerSupabaseClient();
-    
+
     // Get active social alerts for this account
     const { social: socialAlerts } = await getActiveAlerts();
-    const relevantAlerts = socialAlerts.filter(alert => alert.account === account);
+    const relevantAlerts = socialAlerts.filter((alert) => alert.account === account);
 
     // Check each alert's keywords
     for (const alert of relevantAlerts) {
-      const hasMatchingKeywords = alert.keywords.some((keyword: string) => 
+      const hasMatchingKeywords = alert.keywords.some((keyword: string) =>
         content.toLowerCase().includes(keyword.toLowerCase())
       );
 
@@ -147,25 +143,20 @@ export async function monitorSocial(account: string, content: string): Promise<M
           message: '', // Will be formatted by delivery handler
           data: {
             account,
-            keywords: alert.keywords
-          }
+            keywords: alert.keywords,
+          },
         });
 
         // Record the trigger
-        await supabase
-          .from('alert_triggers')
-          .insert({
-            alert_id: alert.id,
-            triggered_at: new Date().toISOString(),
-            content: content,
-          });
+        await supabase.from('alert_triggers').insert({
+          alert_id: alert.id,
+          triggered_at: new Date().toISOString(),
+          content: content,
+        });
 
         // Optionally deactivate one-time alerts
         if (!alert.is_recurring) {
-          await supabase
-            .from('social_alerts')
-            .update({ active: false })
-            .eq('id', alert.id);
+          await supabase.from('social_alerts').update({ active: false }).eq('id', alert.id);
         }
       }
     }
@@ -202,7 +193,7 @@ export async function handleMonitorEvent(event: MonitorEvent): Promise<MonitorSt
     console.error('Failed to handle monitor event:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to handle monitor event'
+      error: error instanceof Error ? error.message : 'Failed to handle monitor event',
     };
   }
-} 
+}

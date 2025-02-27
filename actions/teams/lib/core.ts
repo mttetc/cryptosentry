@@ -1,6 +1,6 @@
 'use server';
 
-import { createServerSupabaseClient } from '@/lib/supabase';
+import { createServerSupabaseClient } from '@/lib/supabase-server';
 import type { TeamState, TeamRole } from '../types';
 import { teamSchema, memberSchema } from '../types';
 
@@ -41,11 +41,7 @@ export async function createTeam(prevState: TeamState, formData: FormData): Prom
   }
 }
 
-export async function addMember(
-  teamId: string,
-  email: string,
-  role: TeamRole
-): Promise<TeamState> {
+export async function addMember(teamId: string, email: string, role: TeamRole): Promise<TeamState> {
   try {
     const validatedFields = memberSchema.parse({ email, role });
 
@@ -174,4 +170,4 @@ export async function removeMember(teamId: string, userId: string): Promise<Team
       error: error instanceof Error ? error.message : 'Failed to remove member',
     };
   }
-} 
+}

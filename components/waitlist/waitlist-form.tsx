@@ -1,18 +1,18 @@
 'use client';
 
-import { useFormState, useFormStatus } from 'react-dom';
+import { useFormStatus } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
 import { joinWaitlist } from '@/actions/waitlist';
 import { getUserCountry } from '@/lib/geolocation';
-import { useEffect } from 'react';
+import { useActionState, useEffect } from 'react';
 
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" disabled={pending}>
-      {pending ? 'Joining...' : 'Join Waitlist'}
+    <Button type="submit" disabled={pending} className="w-full">
+      {pending ? 'Joining...' : 'Get Early Access'}
     </Button>
   );
 }
@@ -24,13 +24,13 @@ const initialState = {
 
 export function WaitlistForm() {
   const { toast } = useToast();
-  const [state, formAction] = useFormState(joinWaitlist, initialState);
+  const [state, formAction] = useActionState(joinWaitlist, initialState);
 
   useEffect(() => {
     if (state.success) {
       toast({
-        title: 'Success!',
-        description: "You've been added to our waitlist. We'll notify you when we launch!",
+        title: 'Welcome aboard! 🚀',
+        description: "You're on the list! We'll notify you when we launch.",
       });
     } else if (state.error) {
       toast({
@@ -47,20 +47,15 @@ export function WaitlistForm() {
         formData.set('country', await getUserCountry());
         formAction(formData);
       }}
-      className="mx-auto w-full max-w-md space-y-4"
+      className="flex flex-col gap-4"
     >
-      <div className="space-y-2">
-        <Input
-          type="email"
-          name="email"
-          placeholder="Enter your email"
-          required
-          className="w-full"
-        />
-        <p className="text-sm text-muted-foreground">
-          We'll use your location to provide better service.
-        </p>
-      </div>
+      <Input
+        type="email"
+        name="email"
+        placeholder="Enter your email for early access"
+        required
+        className="h-12"
+      />
       <SubmitButton />
     </form>
   );
