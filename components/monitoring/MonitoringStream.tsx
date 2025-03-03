@@ -2,59 +2,97 @@ import { useToast } from '@/hooks/use-toast';
 import { useMonitoringStore } from '@/stores/monitoring';
 import { useSSE } from '@/hooks/useSSE';
 import { PriceAlert, SocialAlert } from '@/types/alerts';
+import { useEffect } from 'react';
 
 export function MonitoringStream() {
   const { toast } = useToast();
-  const { 
-    setPriceAlerts, 
-    setSocialAlerts,
-    setError,
-    clearError
-  } = useMonitoringStore();
+  const { priceAlerts, socialAlerts, setPriceAlerts, setSocialAlerts, setError, clearError } =
+    useMonitoringStore();
 
-  // Use the existing SSE hook
-  const { isConnected, error } = useSSE('/api/sse', {
-    onEvent: {
-      init: (data) => {
-        console.log('Monitoring stream connected:', data);
-        clearError();
-      },
-      price_update: (data) => {
-        // Map SSE data to PriceAlert type
-        const alerts: PriceAlert[] = data.alerts.map(alert => ({
-          ...alert,
-          direction: alert.condition,
-          updated_at: alert.created_at, // Fallback to created_at if updated_at is not provided
-        }));
-        setPriceAlerts(alerts);
-        clearError();
-      },
-      social_update: (data) => {
-        // Map SSE data to SocialAlert type
-        const alerts: SocialAlert[] = data.alerts.map(alert => ({
-          ...alert,
-          platform: alert.platform as 'twitter' | 'reddit' | 'discord',
-          updated_at: alert.created_at, // Fallback to created_at if updated_at is not provided
-        }));
-        setSocialAlerts(alerts);
-        clearError();
-      },
-      error: (data) => {
-        setError(data.message);
-        toast({
-          variant: "destructive",
-          title: "Monitoring Error",
-          description: data.message,
-        });
-      },
+  // Use the enhanced SSE hook with the correct interface
+  const { isConnected, error, connectionId } = useSSE('/api/sse', {
+    onInit: (data) => {
+      console.log(`Monitoring stream connected with ID: ${data.connectionId}`);
+      clearError();
+      toast({
+        title: 'Monitoring Connected',
+        description: 'Real-time alerts are now active',
+      });
+    },
+    onPriceUpdate: (data) => {
+      // Create a price alert from the SSE data
+      const priceAlert: PriceAlert = {
+        id: `price-${data.symbol}-${data.timestamp}`,
+        user_id: 'system', // This should be replaced with actual user ID if available
+        symbol: data.symbol,
+        target_price: data.price,
+        direction: 'above', // Default value, should be determined by your business logic
+        created_at: new Date(data.timestamp).toISOString(),
+        updated_at: new Date(data.timestamp).toISOString(),
+        active: true,
+      };
+
+      // Update the store with the new alert
+      setPriceAlerts([...priceAlerts, priceAlert]);
+      clearError();
+    },
+    onSocialUpdate: (data) => {
+      // Create a social alert from the SSE data
+      const socialAlert: SocialAlert = {
+        id: `social-${data.platform}-${data.timestamp}`,
+        user_id: 'system', // This should be replaced with actual user ID if available
+        platform: data.platform as 'twitter' | 'reddit' | 'discord',
+        keyword: data.content.substring(0, 50), // Using first 50 chars as keyword
+        created_at: new Date(data.timestamp).toISOString(),
+        updated_at: new Date(data.timestamp).toISOString(),
+        active: true,
+      };
+
+      // Update the store with the new alert
+      setSocialAlerts([...socialAlerts, socialAlert]);
+      clearError();
+    },
+    onTimeout: (data) => {
+      setError(`Connection timeout: ${data.reason}`);
+      toast({
+        variant: 'destructive',
+        title: 'Monitoring Timeout',
+        description: data.reason,
+      });
+    },
+    onError: (data) => {
+      setError(data.message);
+      toast({
+        variant: 'destructive',
+        title: 'Monitoring Error',
+        description: data.message,
+      });
     },
     retryOnError: true,
     maxRetries: 5,
     onMaxRetriesReached: () => {
       setError('Maximum reconnection attempts reached. Please refresh the page.');
+      toast({
+        variant: 'destructive',
+        title: 'Connection Failed',
+        description: 'Maximum reconnection attempts reached. Please refresh the page.',
+      });
     },
   });
 
+  // Handle connection status changes
+  useEffect(() => {
+    if (!isConnected && connectionId) {
+      // We were connected before but lost connection
+      setError('Connection lost. Attempting to reconnect...');
+      toast({
+        variant: 'destructive',
+        title: 'Connection Lost',
+        description: 'Attempting to reconnect to monitoring service...',
+      });
+    }
+  }, [isConnected, connectionId, setError, toast]);
+
   // This component doesn't render anything
   return null;
-} 
+}

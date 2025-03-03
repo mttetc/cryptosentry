@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { monitorPrice } from '@/actions/alerts';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 import { config } from '@/actions/monitor/config';
 
