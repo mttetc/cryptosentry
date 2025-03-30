@@ -1,7 +1,7 @@
 'use server';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase-server';
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { SETTINGS } from '@/config/messaging';
 
 export const runtime = 'edge';

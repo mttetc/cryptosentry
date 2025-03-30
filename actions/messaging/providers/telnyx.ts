@@ -9,7 +9,7 @@ import {
   TelnyxMessageResponse,
   TelnyxWebhookPayload,
 } from '../types';
-import { createServerSupabaseClient } from '@/lib/supabase-server';
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { messageRequestSchema, telnyxCallPayloadSchema } from '../schemas';
 import { createPublicKey, verify } from 'crypto';
 import { Buffer } from 'buffer';

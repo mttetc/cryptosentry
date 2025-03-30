@@ -1,6 +1,6 @@
 'use server';
 
-import { createServerSupabaseClient } from '@/lib/supabase-server';
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { logError } from '@/lib/logger';
 import type { SocialState, SocialMonitoringConfig } from '../types';
 

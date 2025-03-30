@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { createBrowserSupabaseClient } from '@/lib/supabase-browser';
+import { createClient } from '@/lib/supabase/client';
 
 interface User {
   id: string;
@@ -12,7 +12,7 @@ export function useUser() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const supabase = createBrowserSupabaseClient();
+    const supabase = createClient();
 
     // Get initial user
     supabase.auth.getUser().then(({ data: { user } }) => {

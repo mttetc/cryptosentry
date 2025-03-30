@@ -1,6 +1,6 @@
 'use server';
 
-import { createServerSupabaseClient } from '@/lib/supabase-server';
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { getActiveAlerts } from '@/actions/alerts/lib/core';
 import { deliverAlert } from '@/actions/alerts/lib/alert-delivery';
 import type { AlertCondition } from '@/actions/alerts/schemas';

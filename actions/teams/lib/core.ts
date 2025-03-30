@@ -1,6 +1,6 @@
 'use server';
 
-import { createServerSupabaseClient } from '@/lib/supabase-server';
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 import type { TeamState, TeamRole } from '../types';
 import { teamSchema, memberSchema } from '../types';
 

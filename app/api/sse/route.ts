@@ -3,7 +3,7 @@
 import { handleMonitorEvent } from '@/actions/monitor/lib/core';
 import { headers } from 'next/headers';
 import { sseConfig } from '@/config/sse';
-import { createServerSupabaseClient } from '@/lib/supabase-server';
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { rateLimit } from '@/lib/rate-limit';
 import { SSEEvent, SSEEventType } from '@/actions/monitor/schemas/sse';
 import { NextRequest } from 'next/server';

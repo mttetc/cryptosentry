@@ -1,6 +1,6 @@
 'use server';
 
-import { createServerSupabaseClient } from '@/lib/supabase-server';
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 import type { NotificationPreferences, UserState } from '../types';
 import { notificationPreferencesSchema } from '../types';
 

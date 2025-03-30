@@ -1,11 +1,11 @@
 'use server';
 
-import { createServerSupabaseClient } from '@/lib/supabase-server';
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { z } from 'zod';
+import { getUserCountry } from '@/lib/geolocation';
 
 const waitlistSchema = z.object({
   email: z.string().email(),
-  country: z.string().min(1),
 });
 
 export type State = {
@@ -15,20 +15,22 @@ export type State = {
 
 export async function joinWaitlist(prevState: State | null, formData: FormData): Promise<State> {
   try {
+    const country = await getUserCountry();
     const validatedData = waitlistSchema.parse({
       email: formData.get('email'),
-      country: formData.get('country'),
     });
 
     // Create Supabase client
     const supabase = await createServerSupabaseClient();
 
     // Check if email already exists
-    const { data: existingEntry } = await supabase
+    const { data: existingEntry, error: existingError } = await supabase
       .from('waitlist')
       .select()
       .eq('email', validatedData.email)
       .single();
+
+    console.log('Existing entry check:', { data: existingEntry, error: existingError });
 
     if (existingEntry) {
       return {
@@ -36,10 +38,20 @@ export async function joinWaitlist(prevState: State | null, formData: FormData):
       };
     }
 
-    // Insert new entry
-    const { error } = await supabase.from('waitlist').insert([validatedData]);
+    // Insert new entry with country
+    const { data: insertData, error: insertError } = await supabase
+      .from('waitlist')
+      .insert([
+        {
+          ...validatedData,
+          country,
+        },
+      ])
+      .select();
 
-    if (error) throw error;
+    console.log('Insert attempt:', { data: insertData, error: insertError });
+
+    if (insertError) throw insertError;
 
     return {
       success: true,

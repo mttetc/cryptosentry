@@ -1,6 +1,6 @@
 'use server';
 
-import { createServerSupabaseClient } from '@/lib/supabase-server';
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { telnyxProvider } from '@/actions/messaging/providers/telnyx';
 import { checkUserPreferences, formatAlertMessage } from '@/lib/notification-utils';
 import type { AlertNotification, NotificationResult } from '../schemas';

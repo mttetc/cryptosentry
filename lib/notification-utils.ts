@@ -1,7 +1,7 @@
 'use server';
 
 import { z } from 'zod';
-import { createServerSupabaseClient } from '@/lib/supabase-server';
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 
 export const userContactPreferencesSchema = z.object({
   phone: z.string().min(1),

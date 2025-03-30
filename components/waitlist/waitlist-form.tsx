@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
 import { joinWaitlist } from '@/actions/waitlist';
-import { getUserCountry } from '@/lib/geolocation';
 import { useActionState, useEffect } from 'react';
 
 function SubmitButton() {
@@ -42,13 +41,7 @@ export function WaitlistForm() {
   }, [state, toast]);
 
   return (
-    <form
-      action={async (formData) => {
-        formData.set('country', await getUserCountry());
-        formAction(formData);
-      }}
-      className="flex flex-col gap-4"
-    >
+    <form action={formAction} className="flex flex-col gap-4">
       <Input
         type="email"
         name="email"

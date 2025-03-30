@@ -2,7 +2,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { createServerSupabaseClient } from '@/lib/supabase-server';
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 
 const LOG_DIR = path.join(process.cwd(), 'logs');
 const MAX_LOG_SIZE = 5 * 1024 * 1024; // 5MB
