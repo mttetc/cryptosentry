@@ -2,43 +2,32 @@
 
 import { useCallback, useOptimistic, useTransition } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Activity, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Activity, AlertTriangle, Bell } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ErrorBoundary } from './ErrorBoundary';
 import { useSSE } from '@/hooks/useSSE';
-import { calculateHealthScore } from '@/lib/utils';
 import { PriceAlert, SocialAlert } from '@/types/alerts';
 import { getActiveAlerts } from '@/actions/alerts/lib/core';
 import { useUser } from '@/hooks/use-user';
 
 // Types
-interface HealthScore {
-  priceHealth: number;
-  socialHealth: number;
+interface AlertsState {
   priceAlerts: PriceAlert[];
   socialAlerts: SocialAlert[];
   lastPriceUpdate: number;
   lastSocialUpdate: number;
 }
 
-// Constants
-const HEALTH_THRESHOLDS = {
-  HEALTHY: 90,
-  WARNING: 70,
-} as const;
-
-const DEFAULT_HEALTH: HealthScore = {
-  priceHealth: 100,
-  socialHealth: 100,
+const DEFAULT_STATE: AlertsState = {
   priceAlerts: [],
   socialAlerts: [],
   lastPriceUpdate: 0,
   lastSocialUpdate: 0,
 };
 
-function HealthDashboard() {
+function AlertsOverview() {
   const [isPending, startTransition] = useTransition();
-  const [health, updateHealth] = useOptimistic<HealthScore>(DEFAULT_HEALTH);
+  const [state, updateState] = useOptimistic<AlertsState>(DEFAULT_STATE);
   const { toast } = useToast();
   const { user } = useUser();
 
@@ -48,12 +37,10 @@ function HealthDashboard() {
 
       try {
         const { price, social } = await getActiveAlerts();
-        updateHealth((prev) => ({
+        updateState((prev) => ({
           ...prev,
           priceAlerts: price,
           socialAlerts: social,
-          priceHealth: calculateHealthScore(price.length),
-          socialHealth: calculateHealthScore(social.length),
         }));
       } catch (error) {
         toast({
@@ -64,13 +51,13 @@ function HealthDashboard() {
       }
 
       toast({
-        title: 'Analytics Connected',
+        title: 'Monitoring Connected',
         description: `Connection established (ID: ${data.connectionId.substring(0, 8)}...)`,
       });
     },
     onPriceUpdate: (data) => {
       startTransition(() => {
-        updateHealth((prev) => ({
+        updateState((prev) => ({
           ...prev,
           lastPriceUpdate: data.timestamp,
         }));
@@ -78,7 +65,7 @@ function HealthDashboard() {
     },
     onSocialUpdate: (data) => {
       startTransition(() => {
-        updateHealth((prev) => ({
+        updateState((prev) => ({
           ...prev,
           lastSocialUpdate: data.timestamp,
         }));
@@ -109,20 +96,12 @@ function HealthDashboard() {
     },
   });
 
-  const getHealthIcon = useCallback((score: number) => {
-    if (score >= HEALTH_THRESHOLDS.HEALTHY)
-      return <CheckCircle className="h-4 w-4 text-green-500" />;
-    if (score >= HEALTH_THRESHOLDS.WARNING)
-      return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
-    return <Activity className="h-4 w-4 text-red-500" />;
-  }, []);
-
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle>System Health</CardTitle>
+            <CardTitle>Active Alerts</CardTitle>
             <CardDescription>
               {isConnected ? 'Real-time monitoring active' : 'Connecting to monitoring service...'}
             </CardDescription>
@@ -137,26 +116,36 @@ function HealthDashboard() {
       </CardHeader>
       <CardContent>
         <div className="grid gap-4">
-          {/* Price Alerts Health */}
+          {/* Price Alerts */}
           <div className="flex items-center justify-between rounded-lg border bg-background p-4">
             <div className="space-y-1">
               <p className="text-sm font-medium">Price Alerts</p>
               <p className="text-sm text-muted-foreground">
-                {health.priceAlerts.length} active alerts
+                {state.priceAlerts.length} active alerts
               </p>
+              {state.lastPriceUpdate > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Last update: {new Date(state.lastPriceUpdate).toLocaleTimeString()}
+                </p>
+              )}
             </div>
-            {getHealthIcon(health.priceHealth)}
+            <Bell className="h-4 w-4 text-blue-500" />
           </div>
 
-          {/* Social Alerts Health */}
+          {/* Social Alerts */}
           <div className="flex items-center justify-between rounded-lg border bg-background p-4">
             <div className="space-y-1">
               <p className="text-sm font-medium">Social Alerts</p>
               <p className="text-sm text-muted-foreground">
-                {health.socialAlerts.length} active alerts
+                {state.socialAlerts.length} active alerts
               </p>
+              {state.lastSocialUpdate > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Last update: {new Date(state.lastSocialUpdate).toLocaleTimeString()}
+                </p>
+              )}
             </div>
-            {getHealthIcon(health.socialHealth)}
+            <Bell className="h-4 w-4 text-purple-500" />
           </div>
         </div>
       </CardContent>
@@ -168,7 +157,7 @@ export function AnalyticsContent() {
   return (
     <ErrorBoundary>
       <div className="grid gap-4">
-        <HealthDashboard />
+        <AlertsOverview />
       </div>
     </ErrorBoundary>
   );

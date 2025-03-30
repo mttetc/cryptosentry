@@ -2,10 +2,14 @@
 drop schema if exists public cascade;
 create schema public;
 
+-- Drop team-related tables if they exist
+drop table if exists public.team_members;
+drop table if exists public.teams;
+
 -- Grant necessary permissions to anon role
 grant usage on schema public to anon;
-grant all on all tables in schema public to anon;
-grant all on all sequences in schema public to anon;
+grant all on all tables in public to anon;
+grant all on all sequences in public to anon;
 
 -- Set up extensions
 create extension if not exists "uuid-ossp";

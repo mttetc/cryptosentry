@@ -7,11 +7,8 @@ import { AnalyticsContent } from '@/components/analytics/AnalyticsContent';
 export default function AnalyticsPage() {
   return (
     <DashboardShell>
-      <DashboardHeader 
-        heading="System Analytics" 
-        text="Real-time monitoring of critical metrics"
-      />
-      
+      <DashboardHeader heading="Alerts Overview" text="Monitor your active alerts and updates" />
+
       <Suspense fallback={<AnalyticsSkeleton />}>
         <AnalyticsContent />
       </Suspense>
