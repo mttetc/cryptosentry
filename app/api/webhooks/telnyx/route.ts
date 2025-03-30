@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { telnyxProvider } from '@/actions/messaging/providers/telnyx';
 import { TelnyxWebhookPayload } from '@/actions/messaging/types';
 
-export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
 
 async function validateAndParseWebhook(request: NextRequest) {
@@ -20,7 +19,7 @@ async function validateAndParseWebhook(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const result = await validateAndParseWebhook(request);
-    
+
     if ('error' in result) {
       return NextResponse.json({ error: result.error }, { status: 401 });
     }
@@ -44,4 +43,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-} 
+}

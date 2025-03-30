@@ -83,7 +83,10 @@ export async function checkUserPreferences(userId: string): Promise<UserContactP
   }
 }
 
-export function formatAlertMessage(type: 'price' | 'social', data: Record<string, any>): string {
+export async function formatAlertMessage(
+  type: 'price' | 'social',
+  data: Record<string, any>
+): Promise<string> {
   if (type === 'price') {
     const direction = data.condition === 'above' ? 'risen above' : 'fallen below';
     return `${data.symbol} has ${direction} your target price of $${data.targetPrice}. Current price: $${data.price}`;

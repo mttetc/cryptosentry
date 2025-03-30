@@ -29,7 +29,7 @@ export async function deliverAlert(alert: AlertNotification): Promise<Notificati
       return { success: true, error: prefs.reason };
     }
 
-    const message = formatAlertMessage(alert.type, alert.data);
+    const message = await formatAlertMessage(alert.type, alert.data);
 
     // Deliver via SMS or Call based on user preference
     if (prefs.prefer_sms) {
