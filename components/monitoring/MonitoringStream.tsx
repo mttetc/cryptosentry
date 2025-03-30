@@ -1,14 +1,15 @@
+'use client';
+
 import { useToast } from '@/hooks/use-toast';
 import { useMonitoringStore } from '@/stores/monitoring';
 import { useSSE } from '@/hooks/useSSE';
-import { useEffect } from 'react';
 
 export function MonitoringStream() {
   const { toast } = useToast();
   const { setError, clearError, updatePrice, updateSocial } = useMonitoringStore();
 
   // Use the enhanced SSE hook with the correct interface
-  const { isConnected, error, connectionId } = useSSE('/api/sse', {
+  useSSE('/api/sse', {
     onInit: (data) => {
       console.log(`Monitoring stream connected with ID: ${data.connectionId}`);
       clearError();
@@ -62,19 +63,6 @@ export function MonitoringStream() {
       });
     },
   });
-
-  // Handle connection status changes
-  useEffect(() => {
-    if (!isConnected && connectionId) {
-      // We were connected before but lost connection
-      setError('Connection lost. Attempting to reconnect...');
-      toast({
-        variant: 'destructive',
-        title: 'Connection Lost',
-        description: 'Attempting to reconnect to monitoring service...',
-      });
-    }
-  }, [isConnected, connectionId, setError, toast]);
 
   // This component doesn't render anything
   return null;

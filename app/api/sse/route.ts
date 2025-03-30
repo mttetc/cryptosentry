@@ -1,5 +1,3 @@
-'use server';
-
 import { handleMonitorEvent } from '@/actions/monitor/lib/core';
 import { headers } from 'next/headers';
 import { sseConfig } from '@/config/sse';
@@ -8,7 +6,6 @@ import { rateLimit } from '@/lib/rate-limit';
 import { SSEEvent, SSEEventType } from '@/actions/monitor/schemas/sse';
 import { NextRequest } from 'next/server';
 
-export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
 
 // Keep track of active connections with their cleanup functions
