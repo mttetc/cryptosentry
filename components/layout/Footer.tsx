@@ -6,12 +6,12 @@ export default function Footer() {
       <div className="container mx-auto px-4">
         <div className="flex flex-col items-center justify-center gap-8 text-sm text-muted-foreground">
           <div className="flex gap-8">
-            <a href="/privacy" className="hover:text-foreground">
+            <Link href="/privacy" className="transition-colors hover:text-foreground">
               Privacy Policy
-            </a>
-            <a href="/terms" className="hover:text-foreground">
+            </Link>
+            <Link href="/terms" className="transition-colors hover:text-foreground">
               Terms of Service
-            </a>
+            </Link>
           </div>
           <div>© {new Date().getFullYear()} CryptoSentry. All rights reserved.</div>
         </div>
