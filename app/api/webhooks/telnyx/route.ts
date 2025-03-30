@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { telnyxProvider } from '@/actions/messaging/providers/telnyx';
 import { TelnyxWebhookPayload } from '@/actions/messaging/types';
 
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 async function validateAndParseWebhook(request: NextRequest) {
