@@ -80,8 +80,8 @@ export default function TermsPage() {
             <section className="space-y-4">
               <h2 className="text-2xl font-bold tracking-tight">6. Limitation of Liability</h2>
               <p className="text-base leading-7">
-                CryptoSentry is provided "as is" without warranties of any kind. We are not liable
-                for any damages arising from your use of our service.
+                CryptoSentry is provided &quot;as is&quot; without warranties of any kind. We are
+                not liable for any damages arising from your use of our service.
               </p>
             </section>
 
