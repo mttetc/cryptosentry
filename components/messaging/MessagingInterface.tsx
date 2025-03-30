@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useUser } from '@/hooks/use-user';
 import { useToast } from '@/hooks/use-toast';
-import { telnyxProvider } from '@/actions/messaging/providers/telnyx';
+import { makeCall, sendSMS } from '@/actions/messaging/providers/telnyx';
 import { getUserPreferences } from '@/actions/user';
 import {
   Card,
@@ -58,7 +58,7 @@ export function MessagingInterface() {
       }
 
       if (type === 'call') {
-        const result = await telnyxProvider.makeCall({
+        const result = await makeCall({
           userId: user.id,
           phone: prefs.phone,
           message,
@@ -79,7 +79,7 @@ export function MessagingInterface() {
           description: 'Your call has been initiated successfully',
         });
       } else {
-        const result = await telnyxProvider.sendSMS({
+        const result = await sendSMS({
           userId: user.id,
           phone: prefs.phone,
           message,
