@@ -64,25 +64,28 @@ export async function subscribeToSocialUpdates(
   connection.subscriptions.social.add(`${platform}:${keyword}`);
 }
 
-export function unsubscribeFromPriceUpdates(connectionId: string, symbol: string): void {
+export async function unsubscribeFromPriceUpdates(
+  connectionId: string,
+  symbol: string
+): Promise<void> {
   const connection = SSE_CONNECTIONS.get(connectionId);
   if (!connection) return;
 
   connection.subscriptions.prices.delete(symbol);
 }
 
-export function unsubscribeFromSocialUpdates(
+export async function unsubscribeFromSocialUpdates(
   connectionId: string,
   platform: string,
   keyword: string
-): void {
+): Promise<void> {
   const connection = SSE_CONNECTIONS.get(connectionId);
   if (!connection) return;
 
   connection.subscriptions.social.delete(`${platform}:${keyword}`);
 }
 
-export function closeSSEConnection(connectionId: string): void {
+export async function closeSSEConnection(connectionId: string): Promise<void> {
   const connection = SSE_CONNECTIONS.get(connectionId);
   if (!connection) return;
 
@@ -113,7 +116,7 @@ export async function broadcastUpdate(type: 'price' | 'social', data: any): Prom
       }
     } catch (error) {
       console.error(`Error broadcasting to connection ${connectionId}:`, error);
-      closeSSEConnection(connectionId);
+      await closeSSEConnection(connectionId);
     }
   }
 }

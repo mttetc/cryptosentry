@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
-import { sendDirectMessage } from '@/actions/messaging/lib/direct-messaging';
+import { sendDirectMessage } from '@/lib/services/messaging';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,11 +31,14 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const result = await sendDirectMessage({
-      userId: session.user.id,
-      message,
-      type,
-    });
+    const result = await sendDirectMessage(
+      {
+        userId: session.user.id,
+        message,
+        type,
+      },
+      phone
+    );
 
     if (result.error) {
       return new NextResponse(JSON.stringify({ error: result.error }), { status: 400 });

@@ -1,5 +1,3 @@
-'use server';
-
 import { Users } from 'lucide-react';
 import { getWaitlistCount } from '@/actions/waitlist';
 

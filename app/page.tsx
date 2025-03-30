@@ -1,5 +1,3 @@
-'use server';
-
 import Footer from '@/components/layout/Footer';
 import Header from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
@@ -52,7 +50,7 @@ function AppHero() {
   );
 }
 
-export default async function LandingPage() {
+export default function LandingPage() {
   return (
     <div className="flex min-h-screen flex-col">
       <Header>

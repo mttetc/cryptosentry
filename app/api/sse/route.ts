@@ -1,8 +1,8 @@
-import { handleMonitorEvent } from '@/actions/monitor/lib/core';
 import { SSEEventType } from '@/actions/monitor/schemas/sse';
 import { sseConfig } from '@/config/sse';
 import { rateLimit } from '@/lib/rate-limit';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { handleMonitorEvent } from '@/lib/services/monitor';
 import { NextRequest } from 'next/server';
 
 export const dynamic = 'force-dynamic';

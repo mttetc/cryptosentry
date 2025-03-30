@@ -1,5 +1,3 @@
-'use server';
-
 import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { SUBSCRIPTION_TIERS } from '@/config/subscriptions';

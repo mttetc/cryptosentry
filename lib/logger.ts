@@ -77,7 +77,15 @@ export async function log(level: 'info' | 'warn' | 'error', message: string, dat
   }
 }
 
-// Helper functions
-export const logInfo = (message: string, data?: any) => log('info', message, data);
-export const logWarn = (message: string, data?: any) => log('warn', message, data);
-export const logError = (message: string, data?: any) => log('error', message, data);
+// Async wrapper functions
+export async function logInfo(message: string, data?: any) {
+  return log('info', message, data);
+}
+
+export async function logWarn(message: string, data?: any) {
+  return log('warn', message, data);
+}
+
+export async function logError(message: string, data?: any) {
+  return log('error', message, data);
+}

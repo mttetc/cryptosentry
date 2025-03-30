@@ -16,14 +16,17 @@ export const SUBSCRIPTION_TIERS = {
 } as const;
 
 const subscriptionConfigSchema = z.object({
-  stripe: z.object({
-    secretKey: z.string().min(1),
-    products: z.object({
-      basic: z.string().min(1),
-      pro: z.string().min(1),
-    }),
-    webhookSecret: z.string().min(1),
-  }),
+  stripe: z
+    .object({
+      secretKey: z.string().min(1),
+      products: z.object({
+        basic: z.string().min(1),
+        pro: z.string().min(1),
+      }),
+      webhookSecret: z.string().min(1),
+      // TODO: remove optional when app is launched
+    })
+    .optional(),
 });
 
 function loadConfig() {
