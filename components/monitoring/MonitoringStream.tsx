@@ -1,13 +1,11 @@
 import { useToast } from '@/hooks/use-toast';
 import { useMonitoringStore } from '@/stores/monitoring';
 import { useSSE } from '@/hooks/useSSE';
-import { PriceAlert, SocialAlert } from '@/types/alerts';
 import { useEffect } from 'react';
 
 export function MonitoringStream() {
   const { toast } = useToast();
-  const { priceAlerts, socialAlerts, setPriceAlerts, setSocialAlerts, setError, clearError } =
-    useMonitoringStore();
+  const { setError, clearError, updatePrice, updateSocial } = useMonitoringStore();
 
   // Use the enhanced SSE hook with the correct interface
   const { isConnected, error, connectionId } = useSSE('/api/sse', {
@@ -20,36 +18,21 @@ export function MonitoringStream() {
       });
     },
     onPriceUpdate: (data) => {
-      // Create a price alert from the SSE data
-      const priceAlert: PriceAlert = {
-        id: `price-${data.symbol}-${data.timestamp}`,
-        user_id: 'system', // This should be replaced with actual user ID if available
+      // Update store with latest price
+      updatePrice({
         symbol: data.symbol,
-        target_price: data.price,
-        direction: 'above', // Default value, should be determined by your business logic
-        created_at: new Date(data.timestamp).toISOString(),
-        updated_at: new Date(data.timestamp).toISOString(),
-        active: true,
-      };
-
-      // Update the store with the new alert
-      setPriceAlerts([...priceAlerts, priceAlert]);
+        price: data.price,
+        timestamp: data.timestamp,
+      });
       clearError();
     },
     onSocialUpdate: (data) => {
-      // Create a social alert from the SSE data
-      const socialAlert: SocialAlert = {
-        id: `social-${data.platform}-${data.timestamp}`,
-        user_id: 'system', // This should be replaced with actual user ID if available
-        platform: data.platform as 'twitter' | 'reddit' | 'discord',
-        keyword: data.content.substring(0, 50), // Using first 50 chars as keyword
-        created_at: new Date(data.timestamp).toISOString(),
-        updated_at: new Date(data.timestamp).toISOString(),
-        active: true,
-      };
-
-      // Update the store with the new alert
-      setSocialAlerts([...socialAlerts, socialAlert]);
+      // Update store with latest social content
+      updateSocial({
+        platform: data.platform,
+        content: data.content,
+        timestamp: data.timestamp,
+      });
       clearError();
     },
     onTimeout: (data) => {

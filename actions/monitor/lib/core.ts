@@ -57,18 +57,6 @@ export async function monitorPrice(symbol: string, currentPrice: number): Promis
   try {
     const supabase = await createServerSupabaseClient();
 
-    // Update latest price
-    await supabase.from('latest_prices').upsert(
-      {
-        symbol: symbol.toUpperCase(),
-        price: currentPrice,
-        updated_at: new Date().toISOString(),
-      },
-      {
-        onConflict: 'symbol',
-      }
-    );
-
     // Get active alerts for this symbol
     const { price: priceAlerts } = await getActiveAlerts();
     const relevantAlerts = priceAlerts.filter((alert) => alert.symbol === symbol);

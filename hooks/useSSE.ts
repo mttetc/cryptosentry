@@ -222,7 +222,8 @@ export function useSSE(url: string, options: UseSSEOptions = {}) {
     if (reconnectAttemptsRef.current < maxRetries) {
       // Use configured backoff multiplier
       const retryTimeout = Math.min(
-        sseConfig.interval * Math.pow(sseConfig.backoffMultiplier, reconnectAttemptsRef.current),
+        sseConfig.reconnectInterval *
+          Math.pow(sseConfig.backoffMultiplier, reconnectAttemptsRef.current),
         30000 // Max timeout cap
       );
 

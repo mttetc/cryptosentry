@@ -15,7 +15,7 @@ export interface PriceAlert extends BaseAlert {
 
 export interface SocialAlert extends BaseAlert {
   platform: 'twitter' | 'reddit' | 'discord';
-  keyword: string;
+  keywords: string[];
   sentiment?: 'positive' | 'negative' | 'neutral';
   triggered_at?: string;
-} 
+}

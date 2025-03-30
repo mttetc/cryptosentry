@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { EXCHANGE_ENDPOINTS } from '@/config/constants';
 
 const exchangeConfigSchema = z.object({
   endpoints: z.object({
@@ -11,9 +12,9 @@ const exchangeConfigSchema = z.object({
 function loadConfig() {
   const config = {
     endpoints: {
-      binance: process.env.BINANCE_ENDPOINT || 'https://api.binance.com/api/v3',
-      coinbase: process.env.COINBASE_ENDPOINT || 'https://api.coinbase.com/v2',
-      kraken: process.env.KRAKEN_ENDPOINT || 'https://api.kraken.com/0/public',
+      binance: EXCHANGE_ENDPOINTS.BINANCE,
+      coinbase: EXCHANGE_ENDPOINTS.COINBASE,
+      kraken: EXCHANGE_ENDPOINTS.KRAKEN,
     },
   };
 
@@ -21,4 +22,4 @@ function loadConfig() {
 }
 
 export type ExchangeConfig = z.infer<typeof exchangeConfigSchema>;
-export const exchangeConfig = loadConfig(); 
+export const exchangeConfig = loadConfig();

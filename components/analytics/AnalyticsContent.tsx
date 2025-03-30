@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useOptimistic, useTransition } from 'react';
+import { useCallback, useOptimistic, useTransition } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Activity, AlertTriangle, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -8,6 +8,8 @@ import { ErrorBoundary } from './ErrorBoundary';
 import { useSSE } from '@/hooks/useSSE';
 import { calculateHealthScore } from '@/lib/utils';
 import { PriceAlert, SocialAlert } from '@/types/alerts';
+import { getActiveAlerts } from '@/actions/alerts/lib/core';
+import { useUser } from '@/hooks/use-user';
 
 // Types
 interface HealthScore {
@@ -15,6 +17,8 @@ interface HealthScore {
   socialHealth: number;
   priceAlerts: PriceAlert[];
   socialAlerts: SocialAlert[];
+  lastPriceUpdate: number;
+  lastSocialUpdate: number;
 }
 
 // Constants
@@ -28,15 +32,37 @@ const DEFAULT_HEALTH: HealthScore = {
   socialHealth: 100,
   priceAlerts: [],
   socialAlerts: [],
+  lastPriceUpdate: 0,
+  lastSocialUpdate: 0,
 };
 
 function HealthDashboard() {
   const [isPending, startTransition] = useTransition();
   const [health, updateHealth] = useOptimistic<HealthScore>(DEFAULT_HEALTH);
   const { toast } = useToast();
+  const { user } = useUser();
 
   const { isConnected, error, connectionId } = useSSE('/api/sse', {
-    onInit: (data) => {
+    onInit: async (data) => {
+      if (!user?.id) return;
+
+      try {
+        const { price, social } = await getActiveAlerts();
+        updateHealth((prev) => ({
+          ...prev,
+          priceAlerts: price,
+          socialAlerts: social,
+          priceHealth: calculateHealthScore(price.length),
+          socialHealth: calculateHealthScore(social.length),
+        }));
+      } catch (error) {
+        toast({
+          title: 'Error',
+          description: 'Failed to fetch alerts',
+          variant: 'destructive',
+        });
+      }
+
       toast({
         title: 'Analytics Connected',
         description: `Connection established (ID: ${data.connectionId.substring(0, 8)}...)`,
@@ -44,42 +70,17 @@ function HealthDashboard() {
     },
     onPriceUpdate: (data) => {
       startTransition(() => {
-        // Create a price alert from the SSE data
-        const priceAlert: PriceAlert = {
-          id: `price-${data.symbol}-${data.timestamp}`,
-          user_id: 'system',
-          symbol: data.symbol,
-          target_price: data.price,
-          direction: 'above',
-          created_at: new Date(data.timestamp).toISOString(),
-          updated_at: new Date(data.timestamp).toISOString(),
-          active: true,
-        };
-
         updateHealth((prev) => ({
           ...prev,
-          priceAlerts: [...prev.priceAlerts, priceAlert],
-          priceHealth: calculateHealthScore(prev.priceAlerts.length + 1),
+          lastPriceUpdate: data.timestamp,
         }));
       });
     },
     onSocialUpdate: (data) => {
       startTransition(() => {
-        // Create a social alert from the SSE data
-        const socialAlert: SocialAlert = {
-          id: `social-${data.platform}-${data.timestamp}`,
-          user_id: 'system',
-          platform: data.platform as 'twitter' | 'reddit' | 'discord',
-          keyword: data.content.substring(0, 50),
-          created_at: new Date(data.timestamp).toISOString(),
-          updated_at: new Date(data.timestamp).toISOString(),
-          active: true,
-        };
-
         updateHealth((prev) => ({
           ...prev,
-          socialAlerts: [...prev.socialAlerts, socialAlert],
-          socialHealth: calculateHealthScore(prev.socialAlerts.length + 1),
+          lastSocialUpdate: data.timestamp,
         }));
       });
     },
@@ -107,18 +108,6 @@ function HealthDashboard() {
       });
     },
   });
-
-  // Handle connection status changes
-  useEffect(() => {
-    if (!isConnected && connectionId) {
-      // We were connected before but lost connection
-      toast({
-        title: 'Connection Lost',
-        description: 'Attempting to reconnect to analytics service...',
-        variant: 'destructive',
-      });
-    }
-  }, [isConnected, connectionId, toast]);
 
   const getHealthIcon = useCallback((score: number) => {
     if (score >= HEALTH_THRESHOLDS.HEALTHY)

@@ -14,11 +14,12 @@ import { messageRequestSchema, telnyxCallPayloadSchema } from '../schemas';
 import { createPublicKey, verify } from 'crypto';
 import { Buffer } from 'buffer';
 import { SETTINGS } from '@/config/messaging';
+import { TELNYX_CONFIG } from '@/config/constants';
 
 // Telnyx client setup
 const TELNYX_API_KEY = process.env.TELNYX_API_KEY!;
 const TELNYX_PUBLIC_KEY = process.env.TELNYX_PUBLIC_KEY!;
-const TELNYX_API_BASE = process.env.TELNYX_API_BASE || 'https://api.telnyx.com/v2';
+const TELNYX_API_BASE = TELNYX_CONFIG.API_BASE;
 
 // Optimize message for TTS based on recipient type
 function optimizeMessage(
@@ -74,6 +75,16 @@ async function telnyxRequest<T>(
     throw error;
   }
 }
+
+const voiceConfig = {
+  from: process.env.TELNYX_VOICE_NUMBER!,
+  webhook_url: process.env.TELNYX_WEBHOOK_URL!,
+};
+
+const smsConfig = {
+  from: process.env.TELNYX_SENDER_ID!,
+  messaging_profile_id: process.env.TELNYX_MESSAGING_PROFILE_ID!,
+};
 
 export const telnyxProvider: MessagingProvider = {
   async makeCall(options: CallOptions): Promise<CallResponse> {
