@@ -8,6 +8,65 @@ import {
 } from '../schemas';
 import { checkUserPreferences } from '@/lib/notification-utils';
 
+export async function sendSMS(
+  payload: NotificationPayload,
+  phone: string
+): Promise<NotificationResponse> {
+  const response = await telnyxSendSMS({
+    userId: payload.userId,
+    phone,
+    message: payload.message,
+  });
+  return {
+    success: true,
+    messageId: response.messageId,
+    smsMessageId: response.messageId,
+  };
+}
+
+export async function makeCall(
+  payload: NotificationPayload,
+  phone: string
+): Promise<NotificationResponse> {
+  const response = await telnyxMakeCall({
+    userId: payload.userId,
+    phone,
+    message: payload.message,
+    recipientType: 'human_residence',
+  });
+  return {
+    success: true,
+    messageId: response.callId,
+    callId: response.callId,
+  };
+}
+
+export async function sendBoth(
+  payload: NotificationPayload,
+  phone: string
+): Promise<NotificationResponse> {
+  const [sms, call] = await Promise.all([
+    telnyxSendSMS({
+      userId: payload.userId,
+      phone,
+      message: payload.message,
+    }),
+    telnyxMakeCall({
+      userId: payload.userId,
+      phone,
+      message: payload.message,
+      recipientType: 'human_residence',
+    }),
+  ]);
+
+  return {
+    success: true,
+    messageId: sms.messageId,
+    smsMessageId: sms.messageId,
+    callId: call.callId,
+  };
+}
+
 export async function sendDirectMessage(
   payload: NotificationPayload
 ): Promise<NotificationResponse> {
@@ -48,60 +107,4 @@ export async function sendDirectMessage(
       error: error instanceof Error ? error.message : 'Failed to send message',
     };
   }
-}
-
-async function sendSMS(payload: NotificationPayload, phone: string): Promise<NotificationResponse> {
-  const response = await telnyxSendSMS({
-    userId: payload.userId,
-    phone,
-    message: payload.message,
-  });
-  return {
-    success: true,
-    messageId: response.messageId,
-    smsMessageId: response.messageId,
-  };
-}
-
-async function makeCall(
-  payload: NotificationPayload,
-  phone: string
-): Promise<NotificationResponse> {
-  const response = await telnyxMakeCall({
-    userId: payload.userId,
-    phone,
-    message: payload.message,
-    recipientType: 'human_residence',
-  });
-  return {
-    success: true,
-    messageId: response.callId,
-    callId: response.callId,
-  };
-}
-
-async function sendBoth(
-  payload: NotificationPayload,
-  phone: string
-): Promise<NotificationResponse> {
-  const [sms, call] = await Promise.all([
-    telnyxSendSMS({
-      userId: payload.userId,
-      phone,
-      message: payload.message,
-    }),
-    telnyxMakeCall({
-      userId: payload.userId,
-      phone,
-      message: payload.message,
-      recipientType: 'human_residence',
-    }),
-  ]);
-
-  return {
-    success: true,
-    messageId: sms.messageId,
-    smsMessageId: sms.messageId,
-    callId: call.callId,
-  };
 }
