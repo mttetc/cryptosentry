@@ -132,8 +132,8 @@ export default async function LandingPage() {
                   <div>
                     <h4 className="font-medium">Set Keywords</h4>
                     <p className="text-muted-foreground">
-                      Define token names or topics you're interested in. Get alerts when these are
-                      mentioned.
+                      Define token names or topics you&apos;re interested in. Get alerts when these
+                      are mentioned.
                     </p>
                   </div>
                 </div>

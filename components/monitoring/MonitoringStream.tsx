@@ -10,8 +10,7 @@ export function MonitoringStream() {
 
   // Use the enhanced SSE hook with the correct interface
   useSSE('/api/sse', {
-    onInit: (data) => {
-      console.log(`Monitoring stream connected with ID: ${data.connectionId}`);
+    onInit: () => {
       clearError();
       toast({
         title: 'Monitoring Connected',

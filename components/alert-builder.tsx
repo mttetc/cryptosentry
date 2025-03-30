@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { Plus, X, ArrowRight, ArrowDown, GripVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,7 +31,7 @@ type AlertCondition = {
 
 interface AlertBuilderProps {
   initialCondition?: AlertCondition;
-  onChange: (condition: AlertCondition) => void;
+  onChange: (_condition: AlertCondition) => void;
   availableSymbols: string[];
 }
 
@@ -43,12 +43,12 @@ export function AlertBuilder({ initialCondition, onChange, availableSymbols }: A
     }
   );
 
-  const handleDragEnd = (result: any) => {
-    if (!result.destination) return;
+  const handleDragEnd = (_condition: DropResult) => {
+    if (!_condition.destination) return;
 
     const assets = Array.from(condition.assets);
-    const [reorderedItem] = assets.splice(result.source.index, 1);
-    assets.splice(result.destination.index, 0, reorderedItem);
+    const [reorderedItem] = assets.splice(_condition.source.index, 1);
+    assets.splice(_condition.destination.index, 0, reorderedItem);
 
     const newCondition = {
       ...condition,

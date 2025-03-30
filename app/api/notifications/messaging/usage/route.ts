@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
 
     if (!usage) {
       // Create new usage record
-      const { data: newUsage, error: insertError } = await supabase
+      const { error: insertError } = await supabase
         .from('usage_limits')
         .insert({
           user_id: session.user.id,

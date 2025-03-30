@@ -1,16 +1,11 @@
 'use client';
 
-import {
-  createPriceAlert,
-  createSocialAlert,
-  initialAlertState,
-  type AlertState,
-} from '@/actions/alerts';
+import { createPriceAlert, createSocialAlert, initialAlertState } from '@/actions/alerts';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useCallback, useOptimistic, useTransition } from 'react';
+import { useCallback, useOptimistic } from 'react';
 import { useFormStatus } from 'react-dom';
 
 function SubmitButton() {
@@ -24,11 +19,10 @@ function SubmitButton() {
 }
 
 export function CreateAlertForm() {
-  const [isPending, startTransition] = useTransition();
   const [optimisticState, setOptimisticState] = useOptimistic(initialAlertState);
 
-  const handlePriceSubmit = useCallback(async (formData: FormData) => {
-    startTransition(async () => {
+  const handlePriceSubmit = useCallback(
+    async (formData: FormData) => {
       // Show optimistic success state
       setOptimisticState({ success: true });
 
@@ -48,11 +42,12 @@ export function CreateAlertForm() {
       // Perform the action
       const result = await createPriceAlert(data);
       setOptimisticState(result);
-    });
-  }, []);
+    },
+    [setOptimisticState]
+  );
 
-  const handleSocialSubmit = useCallback(async (formData: FormData) => {
-    startTransition(async () => {
+  const handleSocialSubmit = useCallback(
+    async (formData: FormData) => {
       // Show optimistic success state
       setOptimisticState({ success: true });
 
@@ -71,8 +66,9 @@ export function CreateAlertForm() {
       // Perform the action
       const result = await createSocialAlert(data);
       setOptimisticState(result);
-    });
-  }, []);
+    },
+    [setOptimisticState]
+  );
 
   return (
     <Card>

@@ -86,7 +86,7 @@ export function AuthForm() {
             className="w-full"
             onClick={() => setIsSignUp(!isSignUp)}
           >
-            {isSignUp ? 'Already have an account?' : "Don't have an account?"}
+            {isSignUp ? 'Already have an account?' : 'Don&apos;t have an account?'}
           </Button>
         </form>
       </CardContent>

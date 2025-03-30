@@ -1,11 +1,8 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
 import { Toaster } from '@/components/ui/toaster';
 import { GeistSans } from 'geist/font/sans';
 import { Instrument_Sans } from 'next/font/google';
-
-const inter = Inter({ subsets: ['latin'] });
 
 const instrumentSans = Instrument_Sans({
   subsets: ['latin'],

@@ -1,8 +1,8 @@
 'use client';
 
-import { useCallback, useOptimistic, useTransition } from 'react';
+import { useOptimistic } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Activity, AlertTriangle, Bell } from 'lucide-react';
+import { AlertTriangle, Bell } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ErrorBoundary } from './ErrorBoundary';
 import { useSSE } from '@/hooks/useSSE';
@@ -26,12 +26,11 @@ const DEFAULT_STATE: AlertsState = {
 };
 
 function AlertsOverview() {
-  const [isPending, startTransition] = useTransition();
   const [state, updateState] = useOptimistic<AlertsState>(DEFAULT_STATE);
   const { toast } = useToast();
   const { user } = useUser();
 
-  const { isConnected, error, connectionId } = useSSE('/api/sse', {
+  const { isConnected, error } = useSSE('/api/sse', {
     onInit: async (data) => {
       if (!user?.id) return;
 
@@ -42,10 +41,10 @@ function AlertsOverview() {
           priceAlerts: price,
           socialAlerts: social,
         }));
-      } catch (error) {
+      } catch (err) {
         toast({
           title: 'Error',
-          description: 'Failed to fetch alerts',
+          description: err instanceof Error ? err.message : 'Failed to fetch alerts',
           variant: 'destructive',
         });
       }
@@ -56,20 +55,16 @@ function AlertsOverview() {
       });
     },
     onPriceUpdate: (data) => {
-      startTransition(() => {
-        updateState((prev) => ({
-          ...prev,
-          lastPriceUpdate: data.timestamp,
-        }));
-      });
+      updateState((prev) => ({
+        ...prev,
+        lastPriceUpdate: data.timestamp,
+      }));
     },
     onSocialUpdate: (data) => {
-      startTransition(() => {
-        updateState((prev) => ({
-          ...prev,
-          lastSocialUpdate: data.timestamp,
-        }));
-      });
+      updateState((prev) => ({
+        ...prev,
+        lastSocialUpdate: data.timestamp,
+      }));
     },
     onTimeout: (data) => {
       toast({

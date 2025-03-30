@@ -1,9 +1,8 @@
 import { handleMonitorEvent } from '@/actions/monitor/lib/core';
-import { headers } from 'next/headers';
+import { SSEEventType } from '@/actions/monitor/schemas/sse';
 import { sseConfig } from '@/config/sse';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { rateLimit } from '@/lib/rate-limit';
-import { SSEEvent, SSEEventType } from '@/actions/monitor/schemas/sse';
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { NextRequest } from 'next/server';
 
 export const dynamic = 'force-dynamic';
@@ -58,8 +57,6 @@ function cleanup(connectionId: string) {
         USER_CONNECTIONS.delete(connection.userId);
       }
     }
-
-    console.log(`Cleaned up connection ${connectionId} for user ${connection.userId}`);
   }
 }
 
@@ -196,8 +193,6 @@ export async function GET(request: NextRequest) {
               userId,
             })
           );
-
-          console.log(`New SSE connection ${connectionId} for user ${userId}`);
 
           // Cleanup on close
           request.signal.addEventListener('abort', () => {

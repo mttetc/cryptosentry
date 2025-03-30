@@ -1,4 +1,4 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 export const createClient = (request: NextRequest) => {
@@ -48,6 +48,10 @@ export const updateSession = async (request: NextRequest) => {
   } catch (e) {
     // If you are here, a Supabase client could not be created!
     // This is likely because you have not set up environment variables.
+    console.error(
+      'Failed to create Supabase client:',
+      e instanceof Error ? e.message : 'Unknown error'
+    );
     return NextResponse.next({
       request: {
         headers: request.headers,
