@@ -19,7 +19,11 @@ export const priceAlertSchema = z.object({
 });
 
 export const socialAlertSchema = z.object({
-  account: z.string().min(1).toLowerCase().transform(val => val.replace('@', '')),
+  account: z
+    .string()
+    .min(1)
+    .toLowerCase()
+    .transform((val) => val.replace('@', '')),
   keywords: z.array(z.string().min(1)),
 });
 
@@ -50,4 +54,4 @@ export interface NotificationResult {
   success: boolean;
   error?: string;
   notificationId?: string;
-} 
+}

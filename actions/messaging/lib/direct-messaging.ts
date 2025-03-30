@@ -1,14 +1,16 @@
 'use server';
 
 import { telnyxProvider } from '../providers/telnyx';
-import { 
+import {
   notificationPayloadSchema,
   type NotificationPayload,
-  type NotificationResponse
+  type NotificationResponse,
 } from '../schemas';
 import { checkUserPreferences } from '@/lib/notification-utils';
 
-export async function sendDirectMessage(payload: NotificationPayload): Promise<NotificationResponse> {
+export async function sendDirectMessage(
+  payload: NotificationPayload
+): Promise<NotificationResponse> {
   try {
     // Validate payload
     const validatedPayload = notificationPayloadSchema.parse(payload);
@@ -36,14 +38,14 @@ export async function sendDirectMessage(payload: NotificationPayload): Promise<N
       default:
         return {
           success: false,
-          error: 'Invalid notification type'
+          error: 'Invalid notification type',
         };
     }
   } catch (error) {
     console.error('Failed to send direct message:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to send message'
+      error: error instanceof Error ? error.message : 'Failed to send message',
     };
   }
 }
@@ -52,48 +54,54 @@ async function sendSMS(payload: NotificationPayload, phone: string): Promise<Not
   const response = await telnyxProvider.sendSMS({
     userId: payload.userId,
     phone,
-    message: payload.message
+    message: payload.message,
   });
-  return { 
-    success: true, 
+  return {
+    success: true,
     messageId: response.messageId,
-    smsMessageId: response.messageId 
+    smsMessageId: response.messageId,
   };
 }
 
-async function makeCall(payload: NotificationPayload, phone: string): Promise<NotificationResponse> {
+async function makeCall(
+  payload: NotificationPayload,
+  phone: string
+): Promise<NotificationResponse> {
   const response = await telnyxProvider.makeCall({
     userId: payload.userId,
     phone,
     message: payload.message,
-    recipientType: 'human_residence'
+    recipientType: 'human_residence',
   });
-  return { 
-    success: true, 
+  return {
+    success: true,
     messageId: response.callId,
-    callId: response.callId 
+    callId: response.callId,
   };
 }
 
-async function sendBoth(payload: NotificationPayload, phone: string): Promise<NotificationResponse> {
+async function sendBoth(
+  payload: NotificationPayload,
+  phone: string
+): Promise<NotificationResponse> {
   const [sms, call] = await Promise.all([
     telnyxProvider.sendSMS({
       userId: payload.userId,
       phone,
-      message: payload.message
+      message: payload.message,
     }),
     telnyxProvider.makeCall({
       userId: payload.userId,
       phone,
       message: payload.message,
-      recipientType: 'human_residence'
-    })
+      recipientType: 'human_residence',
+    }),
   ]);
 
   return {
     success: true,
     messageId: sms.messageId, // Use SMS ID as primary for backward compatibility
     smsMessageId: sms.messageId,
-    callId: call.callId
+    callId: call.callId,
   };
-} 
+}

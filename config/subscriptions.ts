@@ -12,7 +12,7 @@ export const SUBSCRIPTION_TIERS = {
     price: 24.99,
     costPerUser: 1.14,
     grossMargin: 23.85,
-  }
+  },
 } as const;
 
 const subscriptionConfigSchema = z.object({
@@ -43,4 +43,4 @@ function loadConfig() {
 
 export type SubscriptionConfig = z.infer<typeof subscriptionConfigSchema>;
 export const subscriptionConfig = loadConfig();
-export type SubscriptionTier = keyof typeof SUBSCRIPTION_TIERS; 
+export type SubscriptionTier = keyof typeof SUBSCRIPTION_TIERS;

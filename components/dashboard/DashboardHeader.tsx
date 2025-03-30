@@ -10,4 +10,4 @@ export function DashboardHeader({ heading, text }: DashboardHeaderProps) {
       {text && <p className="text-lg text-muted-foreground">{text}</p>}
     </div>
   );
-} 
+}

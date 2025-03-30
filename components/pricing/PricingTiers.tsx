@@ -1,7 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Check } from 'lucide-react';
 import { SUBSCRIPTION_TIERS } from '@/config/subscriptions';
@@ -13,7 +20,7 @@ const FEATURES = {
     'Social media alerts',
     'SMS notifications',
     'Voice calls',
-    'Email support'
+    'Email support',
   ],
   PRO: [
     'All Basic features',
@@ -21,8 +28,8 @@ const FEATURES = {
     'Advanced analytics',
     'Team collaboration',
     'Priority support',
-    'Custom integrations'
-  ]
+    'Custom integrations',
+  ],
 } as const;
 
 export function PricingTiers() {
@@ -32,7 +39,7 @@ export function PricingTiers() {
   const handleSubscribe = async (tier: 'BASIC' | 'PRO') => {
     try {
       setIsLoading(tier);
-      
+
       const response = await fetch('/api/subscriptions/create', {
         method: 'POST',
         headers: {
@@ -46,7 +53,7 @@ export function PricingTiers() {
       }
 
       const data = await response.json();
-      
+
       // Redirect to Stripe checkout
       window.location.href = data.url;
     } catch (error) {
@@ -83,8 +90,8 @@ export function PricingTiers() {
           </ul>
         </CardContent>
         <CardFooter>
-          <Button 
-            className="w-full" 
+          <Button
+            className="w-full"
             onClick={() => handleSubscribe('BASIC')}
             disabled={isLoading !== null}
           >
@@ -117,8 +124,8 @@ export function PricingTiers() {
           </ul>
         </CardContent>
         <CardFooter>
-          <Button 
-            className="w-full" 
+          <Button
+            className="w-full"
             onClick={() => handleSubscribe('PRO')}
             disabled={isLoading !== null}
             variant="default"
@@ -129,4 +136,4 @@ export function PricingTiers() {
       </Card>
     </div>
   );
-} 
+}

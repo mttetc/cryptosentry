@@ -10,12 +10,5 @@ interface TimeInputProps
 }
 
 export function TimeInput({ value, onChange, ...props }: TimeInputProps) {
-  return (
-    <Input
-      type="time"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      {...props}
-    />
-  );
-} 
+  return <Input type="time" value={value} onChange={(e) => onChange(e.target.value)} {...props} />;
+}

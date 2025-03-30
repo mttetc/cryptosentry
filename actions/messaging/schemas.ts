@@ -9,20 +9,24 @@ const alphanumericSenderRegex = /^[A-Za-z0-9 ]{1,11}$/;
 // Regex for daily spend limit
 const dailySpendLimitRegex = /^[0-9]+(?:\.[0-9]+)?$/;
 
-export const numberPoolSettingsSchema = z.object({
-  toll_free_weight: z.number().min(0).optional(),
-  long_code_weight: z.number().min(0).optional(),
-  skip_unhealthy: z.boolean().optional(),
-  sticky_sender: z.boolean().optional(),
-  geomatch: z.boolean().optional(),
-}).nullable();
+export const numberPoolSettingsSchema = z
+  .object({
+    toll_free_weight: z.number().min(0).optional(),
+    long_code_weight: z.number().min(0).optional(),
+    skip_unhealthy: z.boolean().optional(),
+    sticky_sender: z.boolean().optional(),
+    geomatch: z.boolean().optional(),
+  })
+  .nullable();
 
-export const urlShortenerSettingsSchema = z.object({
-  domain: z.string().nullable(),
-  prefix: z.string().optional(),
-  replace_blacklist_only: z.boolean().optional(),
-  send_webhooks: z.boolean().optional(),
-}).nullable();
+export const urlShortenerSettingsSchema = z
+  .object({
+    domain: z.string().nullable(),
+    prefix: z.string().optional(),
+    replace_blacklist_only: z.boolean().optional(),
+    send_webhooks: z.boolean().optional(),
+  })
+  .nullable();
 
 export const messagingProfileSchema = z.object({
   name: z.string().min(1),
@@ -45,7 +49,7 @@ export const messageTypeSchema = z.enum(['sms', 'call', 'both']);
 export const notificationPayloadSchema = z.object({
   userId: z.string().min(1),
   message: z.string().min(1),
-  type: messageTypeSchema
+  type: messageTypeSchema,
 });
 
 export const notificationResponseSchema = z.object({
@@ -53,24 +57,24 @@ export const notificationResponseSchema = z.object({
   error: z.string().optional(),
   messageId: z.string().optional(), // For backward compatibility
   smsMessageId: z.string().optional(),
-  callId: z.string().optional()
+  callId: z.string().optional(),
 });
 
 export const telnyxSMSResponseSchema = z.object({
   success: z.boolean(),
   messageId: z.string().optional(),
-  error: z.string().optional()
+  error: z.string().optional(),
 });
 
 export const telnyxCallResponseSchema = z.object({
   success: z.boolean(),
   callId: z.string().optional(),
-  error: z.string().optional()
+  error: z.string().optional(),
 });
 
 export const telnyxCallPayloadSchema = z.object({
-  to: z.string().regex(/^\+[1-9]\d{1,14}$/, "Must be an E.164 phone number"),
-  from: z.string().regex(/^\+[1-9]\d{1,14}$/, "Must be an E.164 phone number"),
+  to: z.string().regex(/^\+[1-9]\d{1,14}$/, 'Must be an E.164 phone number'),
+  from: z.string().regex(/^\+[1-9]\d{1,14}$/, 'Must be an E.164 phone number'),
   webhook_url: z.string().url(),
   record_audio: z.boolean(),
   timeout_secs: z.number().int().positive(),
@@ -81,15 +85,15 @@ export const telnyxCallPayloadSchema = z.object({
 });
 
 export const messageRequestSchema = z.object({
-  from: z.string()
-    .regex(/^\+?[1-9]\d{1,14}$|^[A-Za-z0-9]{1,11}$/, "Must be an E.164 phone number or alphanumeric sender ID"),
-  messaging_profile_id: z.string()
-    .min(1, "Messaging profile ID is required"),
-  to: z.string()
-    .regex(/^\+[1-9]\d{1,14}$/, "Must be an E.164 phone number"),
-  text: z.string()
-    .min(1, "Message cannot be empty")
-    .max(1600, "Message too long"),
+  from: z
+    .string()
+    .regex(
+      /^\+?[1-9]\d{1,14}$|^[A-Za-z0-9]{1,11}$/,
+      'Must be an E.164 phone number or alphanumeric sender ID'
+    ),
+  messaging_profile_id: z.string().min(1, 'Messaging profile ID is required'),
+  to: z.string().regex(/^\+[1-9]\d{1,14}$/, 'Must be an E.164 phone number'),
+  text: z.string().min(1, 'Message cannot be empty').max(1600, 'Message too long'),
   type: z.enum(['SMS', 'MMS']).default('SMS'),
   media_urls: z.array(z.string().url()).optional(),
   subject: z.string().optional(),
@@ -101,4 +105,4 @@ export type NotificationPayload = z.infer<typeof notificationPayloadSchema>;
 export type NotificationResponse = z.infer<typeof notificationResponseSchema>;
 export type TelnyxSMSResponse = z.infer<typeof telnyxSMSResponseSchema>;
 export type TelnyxCallResponse = z.infer<typeof telnyxCallResponseSchema>;
-export type TelnyxCallPayload = z.infer<typeof telnyxCallPayloadSchema>; 
+export type TelnyxCallPayload = z.infer<typeof telnyxCallPayloadSchema>;

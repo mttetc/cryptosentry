@@ -41,9 +41,7 @@ export class ErrorBoundary extends Component<Props, State> {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-sm text-red-600">
-                There was an error loading the analytics data.
-              </p>
+              <p className="text-sm text-red-600">There was an error loading the analytics data.</p>
               <Button
                 variant="outline"
                 onClick={() => this.setState({ hasError: false })}
@@ -59,4 +57,4 @@ export class ErrorBoundary extends Component<Props, State> {
 
     return this.props.children;
   }
-} 
+}

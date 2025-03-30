@@ -169,7 +169,7 @@ export interface TelnyxOutboundVoiceProfile {
   updated_at: string;
 }
 
-export type TelnyxCallEventType = 
+export type TelnyxCallEventType =
   | 'call.initiated'
   | 'call.answered'
   | 'call.completed'
@@ -212,4 +212,4 @@ export interface MessagingProvider {
   getAMDAnalytics?(userId: string, timeRange?: { start: Date; end: Date }): Promise<AMDAnalytics>;
   listPhoneNumbers?(): Promise<TelnyxPhoneNumber[]>;
   getRemainingUsage?(userId: string): Promise<{ remainingCalls: number; remainingSMS: number }>;
-} 
+}

@@ -16,7 +16,7 @@ export const SETTINGS = {
     },
     COOLDOWN: {
       DURATION: 30000, // 30 seconds in milliseconds
-    }
+    },
   },
   SMS: {
     MESSAGE: {
@@ -29,8 +29,8 @@ export const SETTINGS = {
     },
     COOLDOWN: {
       DURATION: 15000, // 15 seconds in milliseconds
-    }
-  }
+    },
+  },
 };
 
 const messagingConfigSchema = z.object({
@@ -60,4 +60,4 @@ function loadConfig() {
 }
 
 export type MessagingConfig = z.infer<typeof messagingConfigSchema>;
-export const messagingConfig = loadConfig(); 
+export const messagingConfig = loadConfig();

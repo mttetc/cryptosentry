@@ -14,4 +14,4 @@ export type NotificationPreferences = z.infer<typeof notificationPreferencesSche
 export interface UserState {
   success: boolean;
   error?: string;
-} 
+}

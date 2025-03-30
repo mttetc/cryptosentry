@@ -10,35 +10,30 @@ import { useMonitoringStore } from '@/stores/monitoring';
 
 function Alerts() {
   const { priceAlerts, socialAlerts } = useMonitoringStore();
-  
-  return (
-    <AlertsList 
-      priceAlerts={priceAlerts}
-      socialAlerts={socialAlerts}
-    />
-  );
+
+  return <AlertsList priceAlerts={priceAlerts} socialAlerts={socialAlerts} />;
 }
 
 export default function DashboardPage() {
   return (
     <DashboardShell>
-      <DashboardHeader 
-        heading="Alerts Dashboard" 
+      <DashboardHeader
+        heading="Alerts Dashboard"
         text="Monitor prices and social posts in real-time."
       />
-      
+
       <div className="grid gap-8">
-        <Suspense fallback={<div className="h-[200px] rounded-md bg-muted animate-pulse" />}>
+        <Suspense fallback={<div className="h-[200px] animate-pulse rounded-md bg-muted" />}>
           <CreateAlertForm />
         </Suspense>
-        
+
         <MonitoringStream />
-        
+
         <Suspense fallback={<AlertsSkeleton />}>
           <Alerts />
         </Suspense>
 
-        <Suspense fallback={<div className="h-[400px] rounded-md bg-muted animate-pulse" />}>
+        <Suspense fallback={<div className="h-[400px] animate-pulse rounded-md bg-muted" />}>
           <UserPreferences />
         </Suspense>
       </div>

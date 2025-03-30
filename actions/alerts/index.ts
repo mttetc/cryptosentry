@@ -1,2 +1,2 @@
 export * from './lib/core';
-export * from './schemas'; 
+export * from './schemas';

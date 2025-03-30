@@ -16,4 +16,4 @@ export const signInSchema = z.object({
 export type AuthState = {
   error?: string;
   success?: boolean;
-}; 
+};

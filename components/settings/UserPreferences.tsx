@@ -75,7 +75,7 @@ export function UserPreferences() {
     try {
       setIsPending(true);
       const result = await updateUserPreferences(preferences);
-      
+
       if (result.error) {
         throw new Error(result.error);
       }
@@ -122,9 +122,7 @@ export function UserPreferences() {
     <Card>
       <CardHeader>
         <CardTitle>Notification Preferences</CardTitle>
-        <CardDescription>
-          Customize how and when you want to receive alerts
-        </CardDescription>
+        <CardDescription>Customize how and when you want to receive alerts</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Phone Number */}
@@ -136,10 +134,10 @@ export function UserPreferences() {
             placeholder="+33612345678"
             value={preferences.phone}
             onChange={(e) => {
-              setPreferences(prev => ({ ...prev, phone: e.target.value }));
+              setPreferences((prev) => ({ ...prev, phone: e.target.value }));
               validatePhone(e.target.value);
             }}
-            className={cn(phoneError && "border-destructive")}
+            className={cn(phoneError && 'border-destructive')}
           />
           {phoneError && (
             <div className="flex items-center gap-2 text-sm text-destructive">
@@ -153,14 +151,12 @@ export function UserPreferences() {
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
             <Label>24/7 Alerts</Label>
-            <p className="text-sm text-muted-foreground">
-              Receive alerts at any time
-            </p>
+            <p className="text-sm text-muted-foreground">Receive alerts at any time</p>
           </div>
           <Switch
             checked={preferences.active_24h}
-            onCheckedChange={(checked: boolean) => 
-              setPreferences(prev => ({ ...prev, active_24h: checked }))
+            onCheckedChange={(checked: boolean) =>
+              setPreferences((prev) => ({ ...prev, active_24h: checked }))
             }
           />
         </div>
@@ -171,8 +167,8 @@ export function UserPreferences() {
           <div className="flex items-center gap-4">
             <TimeInput
               value={preferences.quiet_hours_start || ''}
-              onChange={(value) => 
-                setPreferences(prev => ({ ...prev, quiet_hours_start: value || null }))
+              onChange={(value) =>
+                setPreferences((prev) => ({ ...prev, quiet_hours_start: value || null }))
               }
               disabled={preferences.active_24h}
               placeholder="Start time"
@@ -180,32 +176,32 @@ export function UserPreferences() {
             <span>to</span>
             <TimeInput
               value={preferences.quiet_hours_end || ''}
-              onChange={(value) => 
-                setPreferences(prev => ({ ...prev, quiet_hours_end: value || null }))
+              onChange={(value) =>
+                setPreferences((prev) => ({ ...prev, quiet_hours_end: value || null }))
               }
               disabled={preferences.active_24h}
               placeholder="End time"
             />
           </div>
-          {!preferences.active_24h && !preferences.quiet_hours_start && !preferences.quiet_hours_end && (
-            <p className="text-sm text-muted-foreground">
-              Set quiet hours to prevent notifications during specific times
-            </p>
-          )}
+          {!preferences.active_24h &&
+            !preferences.quiet_hours_start &&
+            !preferences.quiet_hours_end && (
+              <p className="text-sm text-muted-foreground">
+                Set quiet hours to prevent notifications during specific times
+              </p>
+            )}
         </div>
 
         {/* Weekend Alerts */}
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
             <Label>Weekend Alerts</Label>
-            <p className="text-sm text-muted-foreground">
-              Allow alerts during weekends
-            </p>
+            <p className="text-sm text-muted-foreground">Allow alerts during weekends</p>
           </div>
           <Switch
             checked={preferences.weekends_enabled}
-            onCheckedChange={(checked: boolean) => 
-              setPreferences(prev => ({ ...prev, weekends_enabled: checked }))
+            onCheckedChange={(checked: boolean) =>
+              setPreferences((prev) => ({ ...prev, weekends_enabled: checked }))
             }
             disabled={preferences.active_24h}
           />
@@ -215,26 +211,20 @@ export function UserPreferences() {
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
             <Label>Prefer SMS</Label>
-            <p className="text-sm text-muted-foreground">
-              Use SMS instead of calls for alerts
-            </p>
+            <p className="text-sm text-muted-foreground">Use SMS instead of calls for alerts</p>
           </div>
           <Switch
             checked={preferences.prefer_sms}
-            onCheckedChange={(checked: boolean) => 
-              setPreferences(prev => ({ ...prev, prefer_sms: checked }))
+            onCheckedChange={(checked: boolean) =>
+              setPreferences((prev) => ({ ...prev, prefer_sms: checked }))
             }
           />
         </div>
 
-        <Button 
-          onClick={handleSave} 
-          disabled={isPending || !!phoneError}
-          className="w-full"
-        >
+        <Button onClick={handleSave} disabled={isPending || !!phoneError} className="w-full">
           {isPending ? 'Saving...' : 'Save Preferences'}
         </Button>
       </CardContent>
     </Card>
   );
-} 
+}

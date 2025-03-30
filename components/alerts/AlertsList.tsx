@@ -34,9 +34,7 @@ export function AlertsList({ priceAlerts, socialAlerts }: AlertsListProps) {
             >
               <div>
                 <p className="font-semibold">{alert.symbol}</p>
-                <p className="text-sm text-muted-foreground">
-                  Target: ${alert.target_price}
-                </p>
+                <p className="text-sm text-muted-foreground">Target: ${alert.target_price}</p>
               </div>
               <span className="rounded-full bg-primary/10 px-2 py-1 text-xs text-primary">
                 Active
@@ -81,4 +79,4 @@ export function AlertsList({ priceAlerts, socialAlerts }: AlertsListProps) {
       </Card>
     </div>
   );
-} 
+}
