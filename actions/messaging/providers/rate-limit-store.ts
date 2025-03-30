@@ -6,7 +6,7 @@ import {
   CLEANUP_INTERVAL,
   INACTIVE_THRESHOLD,
   SUSPICIOUS_UA_PATTERNS,
-} from './rate-limit-config';
+} from './rate-limit-schemas';
 
 // Global limits with dynamic adjustment
 export const globalLimits = {
@@ -65,15 +65,15 @@ setInterval(() => {
   }
 }, CLEANUP_INTERVAL);
 
-export function isUserAgentSuspicious(userAgent: string): boolean {
+export async function isUserAgentSuspicious(userAgent: string): Promise<boolean> {
   return SUSPICIOUS_UA_PATTERNS.some((pattern) => pattern.test(userAgent));
 }
 
-export function generateKey(ip: string, path: string, userAgent: string): string {
+export async function generateKey(ip: string, path: string, userAgent: string): Promise<string> {
   return `${ip}:${path}:${userAgent}`;
 }
 
-export function getRateLimitConfig(path: string): RateLimitConfig {
+export async function getRateLimitConfig(path: string): Promise<RateLimitConfig> {
   // Find matching route pattern
   const matchingPattern = Object.keys(RATE_LIMITS).find((pattern) => {
     if (pattern === 'default') return false;

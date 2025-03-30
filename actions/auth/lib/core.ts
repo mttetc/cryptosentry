@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import type { AuthState } from '../types';
 import { signUpSchema, signInSchema } from '../types';
 
-export async function signUp(prevState: AuthState, formData: FormData): Promise<AuthState> {
+export async function signUp(_: AuthState, formData: FormData): Promise<AuthState> {
   try {
     const validatedFields = signUpSchema.parse({
       email: formData.get('email'),
@@ -54,7 +54,7 @@ export async function signUp(prevState: AuthState, formData: FormData): Promise<
   }
 }
 
-export async function signIn(prevState: AuthState, formData: FormData): Promise<AuthState> {
+export async function signIn(_: AuthState, formData: FormData): Promise<AuthState> {
   try {
     const validatedFields = signInSchema.parse({
       email: formData.get('email'),

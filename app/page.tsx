@@ -9,6 +9,8 @@ import { WaitlistCount } from '@/components/waitlist/waitlist-count';
 import { Suspense } from 'react';
 import { WaitlistCountSkeleton } from '@/components/waitlist/waitlist-count-skeleton';
 
+export const dynamic = 'force-dynamic';
+
 function WaitlistHero() {
   return (
     <section className="mx-auto mb-16 max-w-4xl text-center">

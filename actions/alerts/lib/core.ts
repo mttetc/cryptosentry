@@ -2,20 +2,10 @@
 
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
-import { priceAlertSchema, socialAlertSchema } from '../schemas';
+import { priceAlertSchema, socialAlertSchema, type AlertState } from '../schemas';
 import type { z } from 'zod';
 
-export interface AlertState {
-  error?: string;
-  success: boolean;
-}
-
-export const initialAlertState: AlertState = {
-  error: undefined,
-  success: false,
-};
-
-async function getAuthenticatedClient() {
+export async function getAuthenticatedClient() {
   const supabase = await createServerSupabaseClient();
   const {
     data: { session },

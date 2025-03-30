@@ -1,12 +1,12 @@
 'use server';
 
-import { sendDirectMessage as messagingService } from '@/lib/services/messaging';
 import {
   notificationPayloadSchema,
   type NotificationPayload,
   type NotificationResponse,
 } from '../schemas';
-import { checkUserPreferences } from '@/lib/notification-utils';
+import { checkUserPreferences } from '@/actions/messaging/utils/notification-utils';
+import { sendSMS } from '@/actions/messaging/providers/telnyx';
 
 export async function sendDirectMessage(
   payload: NotificationPayload
@@ -24,7 +24,17 @@ export async function sendDirectMessage(
       return { success: true, error: prefs.reason };
     }
 
-    return await messagingService(validatedPayload, prefs.phone);
+    const response = await sendSMS({
+      userId: validatedPayload.userId,
+      phone: validatedPayload.phone || prefs.phone,
+      message: validatedPayload.message,
+    });
+
+    if (!response.messageId) {
+      throw new Error('Failed to get message ID from SMS provider');
+    }
+
+    return { success: true, smsMessageId: response.messageId };
   } catch (error) {
     console.error('Failed to send direct message:', error);
     return {

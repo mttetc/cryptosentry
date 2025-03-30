@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { MONITORING_CONFIG } from './constants';
+import { SSE_CONFIG } from '@/actions/monitor/config';
 
 const sseConfigSchema = z.object({
   maxRetries: z.number().min(1).default(3),
@@ -10,18 +10,20 @@ const sseConfigSchema = z.object({
   maxConnectionsPerUser: z.number().min(1).default(5), // Max concurrent connections per user
   rateLimitRequests: z.number().min(1).default(100), // Number of requests allowed
   rateLimitWindow: z.number().min(1).default(60), // Time window in seconds
+  batchSize: z.number().min(1).default(50),
 });
 
 function loadConfig() {
   const config = {
-    maxRetries: MONITORING_CONFIG.SSE.MAX_RETRIES,
-    backoffMultiplier: MONITORING_CONFIG.SSE.BACKOFF_MULTIPLIER,
-    reconnectInterval: MONITORING_CONFIG.SSE.RECONNECT_INTERVAL,
-    connectionTimeout: 3600000, // 1 hour
-    heartbeatInterval: 30000, // 30 seconds
-    maxConnectionsPerUser: 5,
-    rateLimitRequests: 100,
-    rateLimitWindow: 60, // 60 seconds
+    maxRetries: SSE_CONFIG.maxRetries,
+    backoffMultiplier: SSE_CONFIG.backoffMultiplier,
+    reconnectInterval: SSE_CONFIG.reconnectInterval,
+    connectionTimeout: SSE_CONFIG.connectionTimeout,
+    heartbeatInterval: SSE_CONFIG.heartbeatInterval,
+    maxConnectionsPerUser: SSE_CONFIG.maxConnectionsPerUser,
+    rateLimitRequests: SSE_CONFIG.rateLimitRequests,
+    rateLimitWindow: SSE_CONFIG.rateLimitWindow,
+    batchSize: SSE_CONFIG.batchSize,
   };
 
   return sseConfigSchema.parse(config);

@@ -2,7 +2,7 @@
 
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { z } from 'zod';
-import { getUserCountry } from '@/lib/geolocation';
+import { getUserCountry } from '@/actions/messaging/utils/geolocation';
 
 const waitlistSchema = z.object({
   email: z.string().email(),

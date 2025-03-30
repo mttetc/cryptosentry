@@ -1,6 +1,6 @@
 'use server';
 
-import { IpApiResponseSchema } from './geolocation-schemas';
+import { IpApiResponseSchema } from '@/actions/messaging/providers/geolocation-schemas';
 
 export async function getUserCountry(): Promise<string> {
   try {

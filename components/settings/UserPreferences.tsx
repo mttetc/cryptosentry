@@ -12,7 +12,7 @@ import { updateUserPreferences, getUserPreferences } from '@/actions/user';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { NotificationPreferences } from '@/actions/user/types';
 import { AlertCircle } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/';
 
 const DEFAULT_PREFERENCES: NotificationPreferences = {
   phone: '',

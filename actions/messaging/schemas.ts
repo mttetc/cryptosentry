@@ -50,6 +50,10 @@ export const notificationPayloadSchema = z.object({
   userId: z.string().min(1),
   message: z.string().min(1),
   type: messageTypeSchema,
+  phone: z
+    .string()
+    .regex(/^\+[1-9]\d{1,14}$/, 'Must be an E.164 phone number')
+    .optional(),
 });
 
 export const notificationResponseSchema = z.object({

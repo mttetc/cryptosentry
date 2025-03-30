@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { EXCHANGE_ENDPOINTS } from '@/config/constants';
+
+export const EXCHANGE_ENDPOINTS = {
+  BINANCE: 'https://api.binance.com/api/v3',
+  COINBASE: 'https://api.coinbase.com/v2',
+  KRAKEN: 'https://api.kraken.com/0',
+} as const;
 
 const exchangeConfigSchema = z.object({
   endpoints: z.object({

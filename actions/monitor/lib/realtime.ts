@@ -1,9 +1,6 @@
 'use server';
 
-import { EXCHANGE_ENDPOINTS } from '@/config/constants';
-import { SSEEvent, SSEEventType } from '../schemas/sse';
-import { config } from '../config';
-import { handleMonitorEvent } from './core';
+import { encodeSSE } from './sse-utils';
 
 // Keep track of active SSE connections and their monitoring subscriptions
 const SSE_CONNECTIONS = new Map<
@@ -11,8 +8,9 @@ const SSE_CONNECTIONS = new Map<
   {
     controller: ReadableStreamController<Uint8Array>;
     userId: string;
+    lastActivity: number;
     subscriptions: {
-      prices: Set<string>;
+      price: Set<string>;
       social: Set<string>;
     };
   }
@@ -28,8 +26,9 @@ export async function handleSSEConnection(
   SSE_CONNECTIONS.set(connectionId, {
     controller,
     userId,
+    lastActivity: Date.now(),
     subscriptions: {
-      prices: new Set(),
+      price: new Set(),
       social: new Set(),
     },
   });
@@ -50,7 +49,7 @@ export async function subscribeToPriceUpdates(connectionId: string, symbol: stri
   const connection = SSE_CONNECTIONS.get(connectionId);
   if (!connection) return;
 
-  connection.subscriptions.prices.add(symbol);
+  connection.subscriptions.price.add(symbol);
 }
 
 export async function subscribeToSocialUpdates(
@@ -71,7 +70,7 @@ export async function unsubscribeFromPriceUpdates(
   const connection = SSE_CONNECTIONS.get(connectionId);
   if (!connection) return;
 
-  connection.subscriptions.prices.delete(symbol);
+  connection.subscriptions.price.delete(symbol);
 }
 
 export async function unsubscribeFromSocialUpdates(
@@ -106,7 +105,7 @@ export async function broadcastUpdate(type: 'price' | 'social', data: any): Prom
 
   for (const [connectionId, connection] of SSE_CONNECTIONS.entries()) {
     try {
-      if (type === 'price' && connection.subscriptions.prices.has(data.symbol)) {
+      if (type === 'price' && connection.subscriptions.price.has(data.symbol)) {
         connection.controller.enqueue(encodeSSE(eventType, data));
       } else if (
         type === 'social' &&
@@ -119,9 +118,4 @@ export async function broadcastUpdate(type: 'price' | 'social', data: any): Prom
       await closeSSEConnection(connectionId);
     }
   }
-}
-
-// Helper function to encode SSE messages
-function encodeSSE(type: SSEEventType, data: any): Uint8Array {
-  return new TextEncoder().encode(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`);
 }

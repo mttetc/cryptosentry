@@ -4,15 +4,10 @@ import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { AlertsSkeleton } from '@/components/skeletons/AlertsSkeleton';
 import { CreateAlertForm } from '@/components/alerts/CreateAlertForm';
 import { MonitoringStream } from '@/components/monitoring/MonitoringStream';
-import { AlertsList } from '@/components/alerts/AlertsList';
+import { AlertsClient } from '@/components/alerts/AlertsClient';
 import { UserPreferences } from '@/components/settings/UserPreferences';
-import { useMonitoringStore } from '@/stores/monitoring';
 
-function Alerts() {
-  const { priceAlerts, socialAlerts } = useMonitoringStore();
-
-  return <AlertsList priceAlerts={priceAlerts} socialAlerts={socialAlerts} />;
-}
+export const dynamic = 'force-dynamic';
 
 export default function DashboardPage() {
   return (
@@ -30,7 +25,7 @@ export default function DashboardPage() {
         <MonitoringStream />
 
         <Suspense fallback={<AlertsSkeleton />}>
-          <Alerts />
+          <AlertsClient />
         </Suspense>
 
         <Suspense fallback={<div className="h-[400px] animate-pulse rounded-md bg-muted" />}>

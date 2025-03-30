@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { sseConfig } from '@/config/sse';
-import { sseEventSchema, SSEEventType } from '@/actions/monitor/schemas/sse';
+import { sseEventSchema } from '@/actions/monitor/schemas/sse';
 
 interface UseSSEOptions {
   onPriceUpdate?: (data: { symbol: string; price: number; timestamp: number }) => void;

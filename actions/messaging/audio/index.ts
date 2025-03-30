@@ -1,31 +1,9 @@
 'use server';
 
 import { createServerSupabaseClient } from '@/lib/supabase/server';
-import { z } from 'zod';
+import { audioSchema, type AudioState } from './schemas';
 
-const audioSchema = z.object({
-  name: z.string().min(1),
-  file: z
-    .instanceof(Blob)
-    .refine(
-      (file) => ['audio/mpeg', 'audio/wav'].includes(file.type),
-      'Only MP3 and WAV files are allowed'
-    ),
-  duration: z.number().min(1).max(30), // Max 30 seconds
-  isLoopable: z.boolean().default(false),
-  isEmergency: z.boolean().default(false),
-});
-
-export type AudioState = {
-  error?: string;
-  success?: boolean;
-  audioUrl?: string;
-};
-
-export async function saveCustomAudio(
-  prevState: AudioState,
-  formData: FormData
-): Promise<AudioState> {
+export async function saveCustomAudio(_: AudioState, formData: FormData): Promise<AudioState> {
   try {
     const file = formData.get('file') as Blob;
     const validatedFields = audioSchema.parse({

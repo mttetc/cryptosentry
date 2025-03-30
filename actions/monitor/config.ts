@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { MONITORING_CONFIG } from '@/config/constants';
 
 // Configuration schema
 const configSchema = z.object({
@@ -10,14 +9,27 @@ const configSchema = z.object({
   batchSize: z.number().min(1).default(50),
 });
 
+// SSE Configuration
+export const SSE_CONFIG = {
+  maxRetries: 3,
+  backoffMultiplier: 1.5,
+  reconnectInterval: 5000,
+  connectionTimeout: 3600000,
+  heartbeatInterval: 30000,
+  maxConnectionsPerUser: 5,
+  rateLimitRequests: 100,
+  rateLimitWindow: 60,
+  batchSize: 50,
+} as const;
+
 // Load and validate configuration
 function loadConfig() {
   const config = {
     sse: {
-      maxRetries: MONITORING_CONFIG.SSE.MAX_RETRIES,
-      backoffMultiplier: MONITORING_CONFIG.SSE.BACKOFF_MULTIPLIER,
+      maxRetries: SSE_CONFIG.maxRetries,
+      backoffMultiplier: SSE_CONFIG.backoffMultiplier,
     },
-    batchSize: MONITORING_CONFIG.BATCH_SIZE,
+    batchSize: SSE_CONFIG.batchSize,
   };
 
   return configSchema.parse(config);

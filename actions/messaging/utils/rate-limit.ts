@@ -7,7 +7,7 @@ import {
   generateKey,
   getRateLimitConfig,
   MAX_ENTRIES,
-} from './rate-limit-store';
+} from '@/actions/messaging/providers/rate-limit-store';
 
 export async function rateLimit(
   ip: string,
@@ -18,7 +18,7 @@ export async function rateLimit(
   const now = Date.now();
 
   // Get rate limit config for this route
-  const config = getRateLimitConfig(path);
+  const config = await getRateLimitConfig(path);
 
   // Check global limits
   const currentMinute = Math.floor(now / 60000);
@@ -44,7 +44,7 @@ export async function rateLimit(
   globalLimits.lastHour.set(currentHour, hourCount);
 
   // Generate key based on IP, path and user agent
-  const key = generateKey(ip, path, userAgent);
+  const key = await generateKey(ip, path, userAgent);
 
   // Get or create rate limit info
   let info = rateLimits.get(key);
@@ -79,9 +79,8 @@ export async function rateLimit(
   }
 
   // Apply stricter limits for suspicious user agents
-  const adjustedLimit = isUserAgentSuspicious(userAgent)
-    ? Math.floor(config.limit / 2)
-    : config.limit;
+  const isSuspicious = await isUserAgentSuspicious(userAgent);
+  const adjustedLimit = isSuspicious ? Math.floor(config.limit / 2) : config.limit;
 
   // Update last used time
   info.lastUsed = now;

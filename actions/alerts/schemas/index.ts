@@ -8,23 +8,6 @@ export const assetConditionSchema = z.object({
   condition: alertConditionSchema,
   value: z.number(),
   value2: z.number().optional(),
-  percentageChange: z.number().optional(),
-  isReference: z.boolean().optional(),
-});
-
-export const priceAlertSchema = z.object({
-  symbol: z.string().min(1).toUpperCase(),
-  targetPrice: z.number().positive(),
-  condition: alertConditionSchema,
-});
-
-export const socialAlertSchema = z.object({
-  account: z
-    .string()
-    .min(1)
-    .toLowerCase()
-    .transform((val) => val.replace('@', '')),
-  keywords: z.array(z.string().min(1)),
 });
 
 export const alertTypeSchema = z.enum(['price', 'social']);
@@ -34,7 +17,38 @@ export type LogicOperator = z.infer<typeof logicOperatorSchema>;
 export type AssetCondition = z.infer<typeof assetConditionSchema>;
 export type AlertType = z.infer<typeof alertTypeSchema>;
 
-// Notification related types
+export type AlertState = {
+  error?: string;
+  success: boolean;
+};
+
+export const initialAlertState: AlertState = {
+  error: undefined,
+  success: false,
+};
+
+export const priceAlertSchema = z.object({
+  symbol: z.string().min(1),
+  targetPrice: z.number().positive(),
+  condition: z.enum(['above', 'below']),
+});
+
+export const socialAlertSchema = z.object({
+  account: z.string().min(1),
+  keywords: z.array(z.string().min(1)),
+});
+
+export const alertDeliveryLogSchema = z.object({
+  alert_id: z.string(),
+  user_id: z.string(),
+  type: z.enum(['price', 'social']),
+  channel: z.enum(['sms', 'call']),
+  message_id: z.string(),
+  data: z.record(z.any()),
+});
+
+export type AlertDeliveryLog = z.infer<typeof alertDeliveryLogSchema>;
+
 export interface AlertNotification {
   userId: string;
   alertId: string;
@@ -53,5 +67,6 @@ export interface AlertNotification {
 export interface NotificationResult {
   success: boolean;
   error?: string;
-  notificationId?: string;
+  smsMessageId?: string;
+  callId?: string;
 }

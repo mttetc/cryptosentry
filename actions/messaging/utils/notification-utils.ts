@@ -1,22 +1,11 @@
 'use server';
 
 import { createServerSupabaseClient } from '@/lib/supabase/server';
-import { userContactPreferencesSchema, type UserContactPreferences } from './notification-schemas';
-
-function isWithinQuietHours(prefs: UserContactPreferences): boolean {
-  if (!prefs.quiet_hours_start || !prefs.quiet_hours_end) return false;
-
-  const now = new Date();
-  const start = new Date();
-  const end = new Date();
-  const [startHour, startMinute] = prefs.quiet_hours_start.split(':').map(Number);
-  const [endHour, endMinute] = prefs.quiet_hours_end.split(':').map(Number);
-
-  start.setHours(startHour, startMinute, 0);
-  end.setHours(endHour, endMinute, 0);
-
-  return now >= start && now <= end;
-}
+import {
+  userContactPreferencesSchema,
+  type UserContactPreferences,
+  isWithinQuietHours,
+} from '@/actions/messaging/providers/notification-schemas';
 
 export async function checkUserPreferences(userId: string): Promise<UserContactPreferences | null> {
   try {

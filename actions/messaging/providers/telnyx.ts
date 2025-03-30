@@ -1,46 +1,19 @@
 'use server';
 
-import {
-  CallOptions,
-  SMSOptions,
-  CallResponse,
-  SMSResponse,
-  TelnyxMessageResponse,
-  TelnyxWebhookPayload,
-} from '../types';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
-import { messageRequestSchema, telnyxCallPayloadSchema } from '../schemas';
-import { createPublicKey, verify } from 'crypto';
-import { Buffer } from 'buffer';
+import { TELNYX_CONFIG } from './telnyx-config';
 import { SETTINGS } from '@/config/messaging';
-import { TELNYX_CONFIG } from '@/config/constants';
+import { Buffer } from 'buffer';
+import { createPublicKey, verify } from 'crypto';
+import { messageRequestSchema, telnyxCallPayloadSchema } from '../schemas';
+import { CallOptions, CallResponse, SMSOptions, SMSResponse } from '../types';
+import { optimizeMessage } from './telnyx-utils';
+import { z } from 'zod';
 
 // Telnyx client setup
 const TELNYX_API_KEY = process.env.TELNYX_API_KEY!;
 const TELNYX_PUBLIC_KEY = process.env.TELNYX_PUBLIC_KEY!;
 const TELNYX_API_BASE = TELNYX_CONFIG.API_BASE;
-
-// Optimize message for TTS based on recipient type
-function optimizeMessage(
-  message: string,
-  recipientType?: 'human_residence' | 'human_business' | 'machine'
-): string {
-  let optimized = message;
-
-  // Format crypto alerts
-  optimized = optimized.replace(/(\w+) price (\w+) \$?([\d,.]+)/gi, '$1 is now $3 dollars');
-
-  // Format social alerts
-  optimized = optimized.replace(/@(\w+) posted: (.*)/gi, '$1 just posted: $2');
-
-  // Add pauses between different alerts
-  optimized = optimized.replace(/\. /g, '. <break time="0.8s"/> ');
-
-  // Ensure proper SSML formatting
-  optimized = `<speak><prosody rate="${SETTINGS.CALL.SPEECH.RATE}">${optimized}</prosody></speak>`;
-
-  return optimized;
-}
 
 // Reusable fetch wrapper with error handling
 async function telnyxRequest<T>(

@@ -1,9 +1,10 @@
 'use server';
 
-import { monitorPrice, monitorSocial } from '@/lib/services/monitor';
+import { monitorPrice } from '@/lib/services/monitoring/price';
+import { monitorSocial } from '@/lib/services/monitoring/social';
 import type { MonitorEvent, MonitorState } from '../schemas/monitor';
 
-export async function handleMonitorEvent(event: MonitorEvent): Promise<MonitorState> {
+export async function monitorEvent(event: MonitorEvent): Promise<MonitorState> {
   try {
     switch (event.type) {
       case 'price':

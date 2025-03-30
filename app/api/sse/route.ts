@@ -1,8 +1,8 @@
 import { SSEEventType } from '@/actions/monitor/schemas/sse';
 import { sseConfig } from '@/config/sse';
-import { rateLimit } from '@/lib/rate-limit';
+import { rateLimit } from '@/actions/messaging/utils/rate-limit';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
-import { handleMonitorEvent } from '@/lib/services/monitor';
+import { monitorEvent } from '@/actions/monitor/lib/core';
 import { NextRequest } from 'next/server';
 
 export const dynamic = 'force-dynamic';
@@ -256,7 +256,7 @@ export async function POST(request: Request) {
     const event = await request.json();
 
     // Process the event
-    const result = await handleMonitorEvent(event);
+    const result = await monitorEvent(event);
 
     if (!result.success) {
       return new Response(JSON.stringify({ error: result.error }), {
