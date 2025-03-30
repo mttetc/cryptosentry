@@ -14,8 +14,16 @@ const instrumentSans = Instrument_Sans({
 });
 
 export const metadata: Metadata = {
-  title: 'Crypto Alert App',
+  title: 'CryptoSentry - Crypto Alert App',
   description: 'A powerful alert system for cryptocurrency trading',
+  icons: {
+    icon: [
+      {
+        url: '/favicon.svg',
+        type: 'image/svg+xml',
+      },
+    ],
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

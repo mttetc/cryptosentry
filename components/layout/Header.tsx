@@ -4,24 +4,23 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { useUser } from '@/hooks/use-user';
 import { FEATURES } from '@/config/features';
-import { Users } from 'lucide-react';
+import { Logo } from '@/components/ui/logo';
 
-export default function Header() {
+interface HeaderProps {
+  children?: React.ReactNode;
+}
+
+export default function Header({ children }: HeaderProps) {
   const { user } = useUser();
 
   return (
     <header className="border-b">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        <Link href="/" className="font-display text-xl font-semibold tracking-tight">
-          CryptoSentry
-        </Link>
+        <Logo />
 
         <nav className="flex items-center gap-4">
           {FEATURES.isWaitlistMode ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Users className="h-4 w-4" />
-              <span>500+ waiting for access</span>
-            </div>
+            children
           ) : user ? (
             <Link href="/dashboard">
               <Button>Go to Dashboard</Button>

@@ -1,3 +1,5 @@
+'use server';
+
 import Footer from '@/components/layout/Footer';
 import Header from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
@@ -5,6 +7,9 @@ import { WaitlistForm } from '@/components/waitlist/waitlist-form';
 import { ArrowRight, Bell, LineChart, X } from 'lucide-react';
 import Link from 'next/link';
 import { FEATURES } from '@/config/features';
+import { WaitlistCount } from '@/components/waitlist/waitlist-count';
+import { Suspense } from 'react';
+import { WaitlistCountSkeleton } from '@/components/waitlist/waitlist-count-skeleton';
 
 function WaitlistHero() {
   return (
@@ -12,7 +17,7 @@ function WaitlistHero() {
       <span className="mb-4 inline-flex items-center rounded-full bg-primary/10 px-4 py-1 text-sm font-medium text-primary">
         Coming Soon
       </span>
-      <h1 className="font-display mb-6 text-4xl font-semibold leading-[1.1] tracking-tight md:text-5xl md:leading-[1.1]">
+      <h1 className="mb-6 font-display text-4xl font-semibold leading-[1.1] tracking-tight md:text-5xl md:leading-[1.1]">
         Monitor Crypto Influencers <br className="hidden md:inline" />& Get Instant Price Alerts
       </h1>
       <p className="mx-auto mb-12 max-w-2xl text-xl text-muted-foreground">
@@ -29,7 +34,7 @@ function WaitlistHero() {
 function AppHero() {
   return (
     <section className="mx-auto mb-16 max-w-4xl text-center">
-      <h1 className="font-display mb-6 text-4xl font-semibold leading-[1.1] tracking-tight md:text-5xl md:leading-[1.1]">
+      <h1 className="mb-6 font-display text-4xl font-semibold leading-[1.1] tracking-tight md:text-5xl md:leading-[1.1]">
         Monitor Crypto Influencers <br className="hidden md:inline" />& Get Instant Price Alerts
       </h1>
       <p className="mb-8 text-xl text-muted-foreground">
@@ -47,10 +52,16 @@ function AppHero() {
   );
 }
 
-export default function LandingPage() {
+export default async function LandingPage() {
   return (
     <div className="flex min-h-screen flex-col">
-      <Header />
+      <Header>
+        {FEATURES.isWaitlistMode && (
+          <Suspense fallback={<WaitlistCountSkeleton />}>
+            <WaitlistCount />
+          </Suspense>
+        )}
+      </Header>
 
       <main className="container mx-auto flex-grow px-4 py-12">
         {FEATURES.isWaitlistMode ? <WaitlistHero /> : <AppHero />}
@@ -58,7 +69,7 @@ export default function LandingPage() {
         <section className="mx-auto mb-16 grid max-w-5xl gap-8 md:grid-cols-3">
           <div className="rounded-lg border bg-card p-6">
             <X className="mb-4 h-12 w-12 text-primary" />
-            <h3 className="font-display mb-3 text-xl font-semibold tracking-tight">
+            <h3 className="mb-3 font-display text-xl font-semibold tracking-tight">
               X Account Monitoring
             </h3>
             <p className="text-muted-foreground">
@@ -69,7 +80,7 @@ export default function LandingPage() {
 
           <div className="rounded-lg border bg-card p-6">
             <LineChart className="mb-4 h-12 w-12 text-primary" />
-            <h3 className="font-display mb-3 text-xl font-semibold tracking-tight">Price Alerts</h3>
+            <h3 className="mb-3 font-display text-xl font-semibold tracking-tight">Price Alerts</h3>
             <p className="text-muted-foreground">
               Set custom price targets for any cryptocurrency. Combine with social monitoring to
               validate market movements.
@@ -78,7 +89,7 @@ export default function LandingPage() {
 
           <div className="rounded-lg border bg-card p-6">
             <Bell className="mb-4 h-12 w-12 text-primary" />
-            <h3 className="font-display mb-3 text-xl font-semibold tracking-tight">
+            <h3 className="mb-3 font-display text-xl font-semibold tracking-tight">
               Instant Notifications
             </h3>
             <p className="text-muted-foreground">
@@ -90,7 +101,7 @@ export default function LandingPage() {
 
         <section className="mx-auto mb-16 max-w-5xl">
           <div className="mb-12 text-center">
-            <h2 className="font-display mb-4 text-3xl font-bold tracking-tight">How It Works</h2>
+            <h2 className="mb-4 font-display text-3xl font-bold tracking-tight">How It Works</h2>
             <p className="text-xl text-muted-foreground">
               Start monitoring crypto influencers and prices in minutes
             </p>
@@ -98,7 +109,7 @@ export default function LandingPage() {
 
           <div className="grid gap-12 md:grid-cols-2">
             <div className="space-y-6">
-              <h3 className="font-display mb-4 text-2xl font-semibold tracking-tight">
+              <h3 className="mb-4 font-display text-2xl font-semibold tracking-tight">
                 X Account Monitoring
               </h3>
               <div className="space-y-4">
@@ -142,7 +153,7 @@ export default function LandingPage() {
             </div>
 
             <div className="space-y-6">
-              <h3 className="font-display mb-4 text-2xl font-semibold tracking-tight">
+              <h3 className="mb-4 font-display text-2xl font-semibold tracking-tight">
                 Price Monitoring
               </h3>
               <div className="space-y-4">

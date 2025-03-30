@@ -13,6 +13,23 @@ export type State = {
   success?: boolean;
 };
 
+export async function getWaitlistCount() {
+  try {
+    const supabase = await createServerSupabaseClient();
+    const { count, error } = await supabase
+      .from('waitlist')
+      .select('*', { count: 'exact', head: true });
+
+    if (error) throw error;
+
+    // If count is less than 15, return 20
+    return count && count < 15 ? 20 : count;
+  } catch (error) {
+    console.error('Error getting waitlist count:', error);
+    return 20; // Default to 20 if there's an error
+  }
+}
+
 export async function joinWaitlist(prevState: State | null, formData: FormData): Promise<State> {
   try {
     const country = await getUserCountry();
