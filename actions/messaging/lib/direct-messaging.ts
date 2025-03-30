@@ -1,6 +1,6 @@
 'use server';
 
-import { telnyxProvider } from '../providers/telnyx';
+import { makeCall as telnyxMakeCall, sendSMS as telnyxSendSMS } from '../providers/telnyx';
 import {
   notificationPayloadSchema,
   type NotificationPayload,
@@ -51,7 +51,7 @@ export async function sendDirectMessage(
 }
 
 async function sendSMS(payload: NotificationPayload, phone: string): Promise<NotificationResponse> {
-  const response = await telnyxProvider.sendSMS({
+  const response = await telnyxSendSMS({
     userId: payload.userId,
     phone,
     message: payload.message,
@@ -67,7 +67,7 @@ async function makeCall(
   payload: NotificationPayload,
   phone: string
 ): Promise<NotificationResponse> {
-  const response = await telnyxProvider.makeCall({
+  const response = await telnyxMakeCall({
     userId: payload.userId,
     phone,
     message: payload.message,
@@ -85,12 +85,12 @@ async function sendBoth(
   phone: string
 ): Promise<NotificationResponse> {
   const [sms, call] = await Promise.all([
-    telnyxProvider.sendSMS({
+    telnyxSendSMS({
       userId: payload.userId,
       phone,
       message: payload.message,
     }),
-    telnyxProvider.makeCall({
+    telnyxMakeCall({
       userId: payload.userId,
       phone,
       message: payload.message,
@@ -100,7 +100,7 @@ async function sendBoth(
 
   return {
     success: true,
-    messageId: sms.messageId, // Use SMS ID as primary for backward compatibility
+    messageId: sms.messageId,
     smsMessageId: sms.messageId,
     callId: call.callId,
   };

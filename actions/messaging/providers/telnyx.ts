@@ -1,7 +1,6 @@
 'use server';
 
 import {
-  MessagingProvider,
   CallOptions,
   SMSOptions,
   CallResponse,
@@ -76,174 +75,106 @@ async function telnyxRequest<T>(
   }
 }
 
-const voiceConfig = {
-  from: process.env.TELNYX_VOICE_NUMBER!,
-  webhook_url: process.env.TELNYX_WEBHOOK_URL!,
-};
+export async function makeCall(options: CallOptions): Promise<CallResponse> {
+  try {
+    const optimizedMessage = optimizeMessage(options.message, options.recipientType);
 
-const smsConfig = {
-  from: process.env.TELNYX_SENDER_ID!,
-  messaging_profile_id: process.env.TELNYX_MESSAGING_PROFILE_ID!,
-};
+    const callPayload = {
+      to: options.phone,
+      from: process.env.TELNYX_VOICE_NUMBER!,
+      webhook_url: process.env.TELNYX_WEBHOOK_URL!,
+      record_audio: false,
+      timeout_secs: SETTINGS.CALL.TIMEOUTS.ANSWER,
+      answering_machine_detection: 'premium' as const,
+      custom_headers: {
+        'X-User-ID': options.userId,
+      },
+      tts_voice: SETTINGS.CALL.SPEECH.VOICE,
+      tts_payload: optimizedMessage,
+    };
 
-export const telnyxProvider: MessagingProvider = {
-  async makeCall(options: CallOptions): Promise<CallResponse> {
-    try {
-      const optimizedMessage = optimizeMessage(options.message, options.recipientType);
+    const validatedPayload = telnyxCallPayloadSchema.parse(callPayload);
+    const response = await telnyxRequest<{ data: { id: string } }>(
+      '/calls',
+      'POST',
+      validatedPayload
+    );
 
-      const callPayload = {
-        to: options.phone,
-        from: process.env.TELNYX_VOICE_NUMBER!,
-        webhook_url: process.env.TELNYX_WEBHOOK_URL!,
-        record_audio: false,
-        timeout_secs: SETTINGS.CALL.TIMEOUTS.ANSWER,
-        answering_machine_detection: 'premium' as const,
-        custom_headers: {
-          'X-User-Id': options.userId,
-        },
-        tts_voice: SETTINGS.CALL.SPEECH.VOICE,
-        tts_payload: optimizedMessage,
-      };
+    return {
+      success: true,
+      callId: response.data.id,
+    };
+  } catch (error) {
+    console.error('Failed to make call:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to make call',
+    };
+  }
+}
 
-      const validationResult = telnyxCallPayloadSchema.safeParse(callPayload);
+export async function sendSMS(options: SMSOptions): Promise<SMSResponse> {
+  try {
+    const messagePayload = {
+      from: process.env.TELNYX_SENDER_ID!,
+      to: options.phone,
+      text: options.message,
+      messaging_profile_id: process.env.TELNYX_MESSAGING_PROFILE_ID!,
+      custom_headers: {
+        'X-User-ID': options.userId,
+      },
+    };
 
-      if (!validationResult.success) {
-        console.error('Validation error:', validationResult.error);
-        return {
-          error:
-            'Invalid call payload: ' +
-            validationResult.error.errors.map((e) => e.message).join(', '),
-        };
-      }
+    const validatedPayload = messageRequestSchema.parse(messagePayload);
+    const response = await telnyxRequest<{ data: { id: string } }>(
+      '/messages',
+      'POST',
+      validatedPayload
+    );
 
-      // Make the call using Telnyx's default AMD settings
-      const response = await telnyxRequest<{ data: { id: string } }>(
-        '/calls',
-        'POST',
-        validationResult.data
-      );
+    return {
+      success: true,
+      messageId: response.data.id,
+    };
+  } catch (error) {
+    console.error('Failed to send SMS:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to send SMS',
+    };
+  }
+}
 
-      return {
-        success: true,
-        callId: response.data.id,
-      };
-    } catch (error) {
-      console.error('Error making call:', error);
-      return {
-        error: error instanceof Error ? error.message : 'Failed to make call',
-      };
-    }
-  },
+export async function verifyWebhookSignature(
+  payload: string,
+  signature: string,
+  timestamp: string
+): Promise<boolean> {
+  try {
+    const publicKey = createPublicKey({
+      key: Buffer.from(TELNYX_PUBLIC_KEY, 'base64'),
+      format: 'pem',
+      type: 'spki',
+    });
 
-  async sendSMS(options: SMSOptions): Promise<SMSResponse> {
-    try {
-      const messageRequest = {
-        to: options.phone,
-        from: process.env.TELNYX_SENDER_ID!,
-        messaging_profile_id: process.env.TELNYX_MESSAGING_PROFILE_ID!,
-        text: options.message.slice(0, SETTINGS.SMS.MESSAGE.MAX_LENGTH),
-        type: 'SMS',
-      };
+    const isValid = verify(
+      'sha256',
+      Buffer.from(payload),
+      {
+        key: publicKey,
+        padding: 1,
+      },
+      Buffer.from(signature, 'base64')
+    );
 
-      const validationResult = messageRequestSchema.safeParse(messageRequest);
+    // Verify timestamp is within 5 minutes
+    const webhookTimestamp = parseInt(timestamp, 10);
+    const currentTimestamp = Math.floor(Date.now() / 1000);
+    const isRecent = Math.abs(currentTimestamp - webhookTimestamp) < 300;
 
-      if (!validationResult.success) {
-        console.error('Validation error:', validationResult.error);
-        return {
-          error:
-            'Invalid message request: ' +
-            validationResult.error.errors.map((e) => e.message).join(', '),
-        };
-      }
-
-      const response = await telnyxRequest<TelnyxMessageResponse>(
-        '/messages',
-        'POST',
-        validationResult.data
-      );
-
-      return {
-        success: true,
-        messageId: response.id,
-      };
-    } catch (error) {
-      console.error('Error sending SMS:', error);
-      return {
-        error: error instanceof Error ? error.message : 'Failed to send SMS',
-      };
-    }
-  },
-
-  async handleCallWebhook(payload: TelnyxWebhookPayload): Promise<void> {
-    try {
-      const supabase = await createServerSupabaseClient();
-      const userId = payload.payload.custom_headers?.['X-User-Id'];
-
-      if (!userId) {
-        console.warn('Missing userId in webhook payload');
-        return;
-      }
-
-      // Store analytics
-      await supabase.from('call_analytics').insert({
-        user_id: userId,
-        call_id: payload.call_control_id,
-        event_type: payload.event_type,
-        duration: payload.payload.duration,
-        direction: payload.payload.direction,
-        from: payload.payload.from,
-        to: payload.payload.to,
-        status: payload.payload.state,
-        result: payload.payload.result,
-        amd_result: payload.payload.amd_result,
-        cost: payload.payload.cost,
-        recorded: payload.payload.recorded,
-        created_at: new Date().toISOString(),
-      });
-    } catch (error) {
-      console.error('Error handling call webhook:', error);
-    }
-  },
-
-  async handleSMSWebhook(payload: TelnyxWebhookPayload): Promise<void> {
-    try {
-      const supabase = await createServerSupabaseClient();
-      const userId = payload.payload.custom_headers?.['X-User-Id'];
-
-      if (!userId) {
-        console.warn('Missing userId in webhook payload');
-        return;
-      }
-
-      // Store analytics
-      await supabase.from('sms_analytics').insert({
-        user_id: userId,
-        message_id: payload.call_control_id,
-        event_type: payload.event_type,
-        direction: payload.payload.direction,
-        from: payload.payload.from,
-        to: payload.payload.to,
-        status: payload.payload.state,
-        cost: payload.payload.cost,
-        created_at: new Date().toISOString(),
-      });
-    } catch (error) {
-      console.error('Error handling SMS webhook:', error);
-    }
-  },
-
-  validateWebhook(signature: string, payload: string, timestamp: string): boolean {
-    try {
-      const publicKey = createPublicKey({
-        key: TELNYX_PUBLIC_KEY,
-        format: 'pem',
-        type: 'spki',
-      });
-
-      return verify('sha256', Buffer.from(payload), publicKey, Buffer.from(signature, 'base64'));
-    } catch (error) {
-      console.error('Error verifying webhook signature:', error);
-      return false;
-    }
-  },
-};
+    return isValid && isRecent;
+  } catch (error) {
+    console.error('Failed to verify webhook signature:', error);
+    return false;
+  }
+}

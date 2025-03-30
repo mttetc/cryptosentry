@@ -1,7 +1,7 @@
 'use server';
 
 import { createServerSupabaseClient } from '@/lib/supabase/server';
-import { telnyxProvider } from '@/actions/messaging/providers/telnyx';
+import { makeCall, sendSMS } from '@/actions/messaging/providers/telnyx';
 import { checkUserPreferences, formatAlertMessage } from '@/lib/notification-utils';
 import type { AlertNotification, NotificationResult } from '../schemas';
 import { z } from 'zod';
@@ -33,7 +33,7 @@ export async function deliverAlert(alert: AlertNotification): Promise<Notificati
 
     // Deliver via SMS or Call based on user preference
     if (prefs.prefer_sms) {
-      const response = await telnyxProvider.sendSMS({
+      const response = await sendSMS({
         userId: alert.userId,
         phone: prefs.phone,
         message,
@@ -55,7 +55,7 @@ export async function deliverAlert(alert: AlertNotification): Promise<Notificati
 
       return { success: true, notificationId: response.messageId };
     } else {
-      const response = await telnyxProvider.makeCall({
+      const response = await makeCall({
         userId: alert.userId,
         phone: prefs.phone,
         message,
