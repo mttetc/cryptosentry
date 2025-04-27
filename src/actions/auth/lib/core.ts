@@ -10,24 +10,11 @@ export async function signUp(_: AuthState, formData: FormData): Promise<AuthStat
     const validatedFields = signUpSchema.parse({
       email: formData.get('email'),
       password: formData.get('password'),
-      phone: formData.get('phone'),
     });
 
     const supabase = await createServerSupabaseClient();
 
-    // Check if phone number is already registered
-    const { count } = await supabase
-      .from('users')
-      .select('*', { count: 'exact', head: true })
-      .eq('phone', validatedFields.phone);
-
-    if (count && count > 0) {
-      return {
-        error: 'Phone number already in use',
-      };
-    }
-
-    // Sign up the user with just email/password
+    // Sign up the user with email/password
     const { data: authData, error: signUpError } = await supabase.auth.signUp({
       email: validatedFields.email,
       password: validatedFields.password,
@@ -35,10 +22,9 @@ export async function signUp(_: AuthState, formData: FormData): Promise<AuthStat
 
     if (signUpError) throw signUpError;
 
-    // Create user profile with phone number
+    // Create user profile with default settings
     const { error: profileError } = await supabase.from('users').insert({
       id: authData.user?.id,
-      phone: validatedFields.phone,
       active_24h: true, // default settings
       weekends_enabled: true,
     });

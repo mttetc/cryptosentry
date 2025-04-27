@@ -3,8 +3,8 @@
 import { SETTINGS } from '@/lib/config/messaging';
 import { Buffer } from 'buffer';
 import { createPublicKey, verify } from 'crypto';
-import { messageRequestSchema, telnyxCallPayloadSchema } from '../schemas';
-import { CallOptions, CallResponse, SMSOptions, SMSResponse } from '../types';
+import { messageRequestSchema, telnyxCallPayloadSchema } from '../../schemas';
+import { CallOptions, CallResponse, SMSOptions, SMSResponse } from '../../types';
 import { TELNYX_CONFIG } from './telnyx-config';
 import { optimizeMessage } from './telnyx-utils';
 

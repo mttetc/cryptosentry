@@ -9,6 +9,8 @@ export const userContactPreferencesSchema = z.object({
   weekends_enabled: z.boolean().optional(),
   canSend: z.boolean().optional(),
   reason: z.string().optional(),
+  telegramEnabled: z.boolean().optional(),
+  telegramChatId: z.string().optional(),
 });
 
 export type UserContactPreferences = z.infer<typeof userContactPreferencesSchema>;

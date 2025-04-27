@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useUser } from '@/hooks/use-user';
 import { useToast } from '@/hooks/use-toast';
-import { makeCall, sendSMS } from '@/actions/messaging/providers/telnyx';
+import { makeCall, sendSMS } from '@/actions/messaging/providers/telnyx/index';
 import { getUserPreferences } from '@/actions/user';
 import {
   Card,

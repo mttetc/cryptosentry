@@ -203,12 +203,70 @@ export interface TelnyxWebhookPayload {
   };
 }
 
+// Telegram-specific types
+export interface TelegramUser {
+  id: string;
+  first_name: string;
+  last_name?: string;
+  username?: string;
+  language_code?: string;
+  is_bot: boolean;
+}
+
+export interface TelegramChat {
+  id: string;
+  type: 'private' | 'group' | 'supergroup' | 'channel';
+  title?: string;
+  username?: string;
+  first_name?: string;
+  last_name?: string;
+}
+
+export interface TelegramMessage {
+  message_id: number;
+  from?: TelegramUser;
+  date: number;
+  chat: TelegramChat;
+  text?: string;
+  entities?: TelegramMessageEntity[];
+}
+
+export interface TelegramMessageEntity {
+  type: string;
+  offset: number;
+  length: number;
+  url?: string;
+  user?: TelegramUser;
+  language?: string;
+}
+
+export interface TelegramUpdate {
+  update_id: number;
+  message?: TelegramMessage;
+  callback_query?: TelegramCallbackQuery;
+}
+
+export interface TelegramCallbackQuery {
+  id: string;
+  from: TelegramUser;
+  message?: TelegramMessage;
+  inline_message_id?: string;
+  chat_instance: string;
+  data?: string;
+}
+
+export interface TelegramWebhookPayload {
+  update_id: number;
+  message?: TelegramMessage;
+  callback_query?: TelegramCallbackQuery;
+}
+
 export interface MessagingProvider {
   makeCall(options: CallOptions): Promise<CallResponse>;
   sendSMS(options: SMSOptions): Promise<SMSResponse>;
   validateWebhook(signature: string, payload: string, timestamp: string): boolean;
-  handleCallWebhook(data: TelnyxWebhookPayload): Promise<void>;
-  handleSMSWebhook(data: TelnyxWebhookPayload): Promise<void>;
+  handleCallWebhook(data: TelnyxWebhookPayload | TelegramWebhookPayload): Promise<void>;
+  handleSMSWebhook(data: TelnyxWebhookPayload | TelegramWebhookPayload): Promise<void>;
   getAMDAnalytics?(userId: string, timeRange?: { start: Date; end: Date }): Promise<AMDAnalytics>;
   listPhoneNumbers?(): Promise<TelnyxPhoneNumber[]>;
   getRemainingUsage?(userId: string): Promise<{ remainingCalls: number; remainingSMS: number }>;

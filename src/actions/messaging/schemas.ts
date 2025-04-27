@@ -62,6 +62,7 @@ export const notificationResponseSchema = z.object({
   messageId: z.string().optional(), // For backward compatibility
   smsMessageId: z.string().optional(),
   callId: z.string().optional(),
+  provider: z.enum(['telnyx', 'telegram']).optional(), // Removed 'whatsapp'
 });
 
 export const telnyxSMSResponseSchema = z.object({
@@ -103,10 +104,32 @@ export const messageRequestSchema = z.object({
   subject: z.string().optional(),
 });
 
-// Type exports
+// Telegram-specific schemas
+export const telegramMessageSchema = z.object({
+  chat_id: z.string().min(1, 'Chat ID is required'),
+  text: z.string().min(1, 'Message cannot be empty'),
+  parse_mode: z.enum(['HTML', 'Markdown', 'MarkdownV2']).optional(),
+  disable_web_page_preview: z.boolean().optional(),
+  disable_notification: z.boolean().optional(),
+  reply_to_message_id: z.number().optional(),
+  allow_sending_without_reply: z.boolean().optional(),
+});
+
+export const telegramCallPayloadSchema = z.object({
+  chat_id: z.string().min(1, 'Chat ID is required'),
+  title: z.string().min(1, 'Title is required'),
+  description: z.string().optional(),
+  start_date: z.number().optional(),
+});
+
+// Removed WhatsApp-specific schemas
+
 export type MessageType = z.infer<typeof messageTypeSchema>;
 export type NotificationPayload = z.infer<typeof notificationPayloadSchema>;
 export type NotificationResponse = z.infer<typeof notificationResponseSchema>;
 export type TelnyxSMSResponse = z.infer<typeof telnyxSMSResponseSchema>;
 export type TelnyxCallResponse = z.infer<typeof telnyxCallResponseSchema>;
 export type TelnyxCallPayload = z.infer<typeof telnyxCallPayloadSchema>;
+export type TelegramMessagePayload = z.infer<typeof telegramMessageSchema>;
+export type TelegramCallPayload = z.infer<typeof telegramCallPayloadSchema>;
+// Removed WhatsApp type exports

@@ -1,8 +1,8 @@
 'use server';
 
 import { createServerSupabaseClient } from '@/lib/supabase/server';
-import type { NotificationPreferences, UserState } from '../types';
-import { notificationPreferencesSchema } from '../types';
+import type { NotificationPreferences, UserState } from '../types/index';
+import { notificationPreferencesSchema } from '../types/index';
 
 export async function updateUserPreferences(
   preferences: NotificationPreferences
@@ -27,6 +27,9 @@ export async function updateUserPreferences(
       quiet_hours_start: validatedPrefs.quiet_hours_start,
       quiet_hours_end: validatedPrefs.quiet_hours_end,
       weekends_enabled: validatedPrefs.weekends_enabled,
+      telegram_enabled: validatedPrefs.telegram_enabled,
+      telegram_chat_id: validatedPrefs.telegram_chat_id,
+      telegram_setup_in_progress: validatedPrefs.telegram_setup_in_progress,
       updated_at: new Date().toISOString(),
     });
 
@@ -55,15 +58,24 @@ export async function getUserPreferences(): Promise<NotificationPreferences | nu
 
     const { data, error } = await supabase
       .from('user_notification_settings')
-      .select('phone, prefer_sms, active_24h, quiet_hours_start, quiet_hours_end, weekends_enabled')
+      .select(
+        'phone, prefer_sms, active_24h, quiet_hours_start, quiet_hours_end, weekends_enabled, telegram_enabled, telegram_chat_id, telegram_setup_in_progress'
+      )
       .eq('user_id', session.user.id)
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error fetching user preferences:', error);
+      return null;
+    }
+
+    if (!data) {
+      return null;
+    }
 
     return notificationPreferencesSchema.parse(data);
   } catch (error) {
-    console.error('Failed to get preferences:', error);
+    console.error('Error in getUserPreferences:', error);
     return null;
   }
 }

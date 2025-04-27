@@ -21,8 +21,8 @@ function WaitlistHero() {
         Monitor Crypto Influencers <br className="hidden md:inline" />& Get Instant Price Alerts
       </h1>
       <p className="mx-auto mb-12 max-w-2xl text-xl text-muted-foreground">
-        Get instant notifications via SMS and phone calls when key influencers mention tokens or
-        when prices hit your targets. Combine both for powerful market insights.
+        Get instant notifications via SMS, Telegram, and phone calls when key influencers mention
+        tokens or when prices hit your targets. Combine both for powerful market insights.
       </p>
       <div className="mx-auto max-w-md">
         <WaitlistForm />
@@ -38,8 +38,8 @@ function AppHero() {
         Monitor Crypto Influencers <br className="hidden md:inline" />& Get Instant Price Alerts
       </h1>
       <p className="mb-8 text-xl text-muted-foreground">
-        Stay ahead with combined social and price monitoring. Get instant notifications via SMS and
-        phone calls when influencers mention tokens or when prices reach your targets.
+        Stay ahead with combined social and price monitoring. Get instant notifications via SMS,
+        Telegram, and phone calls when influencers mention tokens or when prices reach your targets.
       </p>
       <div className="flex justify-center gap-4">
         <Link href="/dashboard">
@@ -93,8 +93,8 @@ export default function LandingPage() {
               Instant Notifications
             </h3>
             <p className="text-muted-foreground">
-              Receive both SMS and phone call alerts. Stay informed of critical market movements and
-              influential social signals 24/7.
+              Receive SMS, Telegram, and phone call alerts. Stay informed of critical market
+              movements and influential social signals 24/7.
             </p>
           </div>
         </section>

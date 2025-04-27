@@ -63,22 +63,6 @@ export function AuthForm() {
               placeholder="Enter your password"
             />
           </div>
-          {isSignUp && (
-            <div className="space-y-2">
-              <label htmlFor="phone">Phone Number</label>
-              <Input
-                id="phone"
-                name="phone"
-                type="tel"
-                required
-                placeholder="+1234567890"
-                pattern="^\+[1-9]\d{1,14}$"
-              />
-              <p className="text-sm text-muted-foreground">
-                Format: +[country code][number] (e.g., +33612345678)
-              </p>
-            </div>
-          )}
           <SubmitButton />
           <Button
             type="button"

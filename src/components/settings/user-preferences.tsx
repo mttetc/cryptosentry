@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { updateUserPreferences, getUserPreferences } from '@/actions/user';
 import { Skeleton } from '@/components/ui/skeleton';
-import type { NotificationPreferences } from '@/actions/user/types';
+import type { NotificationPreferences } from '@/actions/user/types/index';
 import { AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils/';
 
