@@ -25,7 +25,7 @@ async function setupWebhook() {
   }
 
   try {
-    console.log(`Setting up webhook for ${webhookUrl}...`);
+    console.warn(`Setting up webhook for ${webhookUrl}...`);
 
     const response = await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
       method: 'POST',
@@ -42,12 +42,12 @@ async function setupWebhook() {
     const data = await response.json();
 
     if (data.ok) {
-      console.log('Webhook set up successfully!');
-      console.log(`Webhook URL: ${data.result.url}`);
-      console.log(`Has custom certificate: ${data.result.has_custom_certificate}`);
-      console.log(`Pending update count: ${data.result.pending_update_count}`);
-      console.log(`Max connections: ${data.result.max_connections}`);
-      console.log(`IP address: ${data.result.ip_address}`);
+      console.warn('Webhook set up successfully!');
+      console.warn(`Webhook URL: ${data.result.url}`);
+      console.warn(`Has custom certificate: ${data.result.has_custom_certificate}`);
+      console.warn(`Pending update count: ${data.result.pending_update_count}`);
+      console.warn(`Max connections: ${data.result.max_connections}`);
+      console.warn(`IP address: ${data.result.ip_address}`);
     } else {
       console.error('Failed to set up webhook:', data.description);
     }

@@ -64,3 +64,48 @@ export function generateTelegramDeepLink(
 
   return deepLink;
 }
+
+/**
+ * Sends a message to a Telegram chat
+ */
+export async function sendTelegramMessage(chatId: string, text: string): Promise<void> {
+  const response = await fetch(
+    `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: optimizeTelegramMessage(text),
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    console.error('Failed to send Telegram message:', await response.text());
+  }
+}
+
+/**
+ * Answers a callback query to remove the loading state
+ */
+export async function answerCallbackQuery(callbackQueryId: string): Promise<void> {
+  const response = await fetch(
+    `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/answerCallbackQuery`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        callback_query_id: callbackQueryId,
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    console.error('Failed to answer callback query:', await response.text());
+  }
+}

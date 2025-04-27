@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { verifyWebhookSignature } from '@/actions/messaging/providers/telegram';
-import { extractUserFromTelegramMessage } from '@/actions/messaging/providers/telegram/telegram-utils';
+import {
+  extractUserFromTelegramMessage,
+  sendTelegramMessage,
+  answerCallbackQuery,
+} from '@/actions/messaging/providers/telegram/telegram-utils';
 
 export async function POST(request: Request) {
   try {
@@ -20,8 +24,34 @@ export async function POST(request: Request) {
     }
 
     const update = JSON.parse(payload);
-    const message = update.message;
+    console.warn('Received Telegram update:', JSON.stringify(update, null, 2));
 
+    // Handle callback queries (for inline keyboard buttons)
+    if (update.callback_query) {
+      const callbackQuery = update.callback_query;
+      const data = callbackQuery.data;
+      const chatId = callbackQuery.message.chat.id;
+
+      console.warn(`Processing callback query from chat ${chatId}: ${data}`);
+
+      if (data.startsWith('action_')) {
+        const action = data.replace('action_', '');
+
+        if (action === 'help') {
+          await sendTelegramMessage(
+            chatId,
+            'CryptoSentry is a cryptocurrency monitoring service. You will receive alerts about significant price movements and other important events.'
+          );
+        }
+      }
+
+      // Answer the callback query to remove the loading state
+      await answerCallbackQuery(callbackQuery.id);
+      return NextResponse.json({ success: true });
+    }
+
+    // Handle regular messages
+    const message = update.message;
     if (!message) {
       return NextResponse.json({ error: 'No message in update' }, { status: 400 });
     }
@@ -31,6 +61,8 @@ export async function POST(request: Request) {
     if (!userInfo) {
       return NextResponse.json({ error: 'Could not extract user info' }, { status: 400 });
     }
+
+    console.warn(`Processing message from user ${userInfo.userId}: ${message.text}`);
 
     // Handle /start command with connect parameter
     if (message.text?.startsWith('/start connect_')) {
@@ -52,23 +84,10 @@ export async function POST(request: Request) {
       }
 
       // Send confirmation message to user
-      const response = await fetch(
-        `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            chat_id: userInfo.userId,
-            text: '✅ Your Telegram account has been successfully connected! You will now receive notifications here.',
-          }),
-        }
+      await sendTelegramMessage(
+        userInfo.userId,
+        '✅ Your Telegram account has been successfully connected! You will now receive notifications here.'
       );
-
-      if (!response.ok) {
-        console.error('Failed to send confirmation message:', await response.text());
-      }
     }
 
     return NextResponse.json({ success: true });

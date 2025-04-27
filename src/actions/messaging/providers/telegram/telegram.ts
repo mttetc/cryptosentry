@@ -1,12 +1,7 @@
 'use server';
 
-import { SETTINGS } from '@/lib/config/messaging';
 import { CallOptions, CallResponse, SMSOptions, SMSResponse } from '../../types';
-import {
-  messageRequestSchema,
-  telegramCallPayloadSchema,
-  telegramMessageSchema,
-} from '../../schemas';
+import { telegramCallPayloadSchema, telegramMessageSchema } from '../../schemas';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 
 // Telegram client setup
@@ -205,7 +200,7 @@ async function getTelegramChatId(userId: string): Promise<string | null> {
   }
 }
 
-async function createOrGetVoiceChat(chatId: string): Promise<string> {
+async function createOrGetVoiceChat(_chatId: string): Promise<string> {
   // This would be implemented to create a voice chat or get an existing one
   // For now, we'll return a dummy ID
   return 'voice_chat_123';

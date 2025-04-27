@@ -8,7 +8,7 @@ import { TimeInput } from '@/components/ui/time-input';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { updateUserPreferences, getUserPreferences } from '@/actions/user';
+import { updateUserPreferences, getUserPreferences } from '@/actions/user/lib/core';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { NotificationPreferences } from '@/actions/user/types/index';
 import { AlertCircle } from 'lucide-react';

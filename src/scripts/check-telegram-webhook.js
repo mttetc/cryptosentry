@@ -19,7 +19,7 @@ async function checkWebhook() {
   }
 
   try {
-    console.log('Checking webhook status...');
+    console.warn('Checking webhook status...');
 
     const response = await fetch(`https://api.telegram.org/bot${botToken}/getWebhookInfo`);
 
@@ -27,16 +27,16 @@ async function checkWebhook() {
 
     if (data.ok) {
       const info = data.result;
-      console.log('Webhook status:');
-      console.log(`URL: ${info.url || 'Not set'}`);
-      console.log(`Has custom certificate: ${info.has_custom_certificate}`);
-      console.log(`Pending update count: ${info.pending_update_count}`);
-      console.log(`Max connections: ${info.max_connections}`);
-      console.log(`IP address: ${info.ip_address}`);
-      console.log(
+      console.warn('Webhook status:');
+      console.warn(`URL: ${info.url || 'Not set'}`);
+      console.warn(`Has custom certificate: ${info.has_custom_certificate}`);
+      console.warn(`Pending update count: ${info.pending_update_count}`);
+      console.warn(`Max connections: ${info.max_connections}`);
+      console.warn(`IP address: ${info.ip_address}`);
+      console.warn(
         `Last error date: ${info.last_error_date ? new Date(info.last_error_date * 1000).toISOString() : 'None'}`
       );
-      console.log(`Last error message: ${info.last_error_message || 'None'}`);
+      console.warn(`Last error message: ${info.last_error_message || 'None'}`);
     } else {
       console.error('Failed to get webhook info:', data.description);
     }

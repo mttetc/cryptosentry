@@ -10,7 +10,6 @@
 
 require('dotenv').config();
 const fs = require('fs');
-const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
 
 // Initialize Supabase client
@@ -27,7 +26,7 @@ if (!supabaseUrl || !supabaseServiceKey) {
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 async function processWebhookUpdate(update) {
-  console.log('Processing webhook update:', JSON.stringify(update, null, 2));
+  console.warn('Processing webhook update:', JSON.stringify(update, null, 2));
 
   // Handle message updates
   if (update.message) {
@@ -35,14 +34,14 @@ async function processWebhookUpdate(update) {
     const chatId = message.chat.id;
     const text = message.text || '';
 
-    console.log(`Received message from chat ${chatId}: ${text}`);
+    console.warn(`Received message from chat ${chatId}: ${text}`);
 
     // Check if this is a start command with a connection token
     if (text.startsWith('/start')) {
       const parts = text.split(' ');
       if (parts.length > 1 && parts[1].startsWith('connect_')) {
         const userId = parts[1].replace('connect_', '');
-        console.log(`Connection request from user ${userId} for chat ${chatId}`);
+        console.warn(`Connection request from user ${userId} for chat ${chatId}`);
 
         // Update user preferences with the Telegram chat ID
         const { data, error } = await supabase
@@ -59,7 +58,7 @@ async function processWebhookUpdate(update) {
           return;
         }
 
-        console.log('User preferences updated successfully:', data);
+        console.warn('User preferences updated successfully:', data);
 
         // Send confirmation message to the user
         await sendTelegramMessage(
@@ -76,7 +75,7 @@ async function processWebhookUpdate(update) {
     const data = callbackQuery.data;
     const chatId = callbackQuery.message.chat.id;
 
-    console.log(`Received callback query from chat ${chatId}: ${data}`);
+    console.warn(`Received callback query from chat ${chatId}: ${data}`);
 
     // Process different callback data types
     if (data.startsWith('action_')) {
@@ -115,7 +114,7 @@ async function sendTelegramMessage(chatId, text) {
     const data = await response.json();
 
     if (data.ok) {
-      console.log(`Message sent successfully to chat ${chatId}`);
+      console.warn(`Message sent successfully to chat ${chatId}`);
     } else {
       console.error('Failed to send message:', data.description);
     }

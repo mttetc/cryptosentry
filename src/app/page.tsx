@@ -8,8 +8,34 @@ import { FEATURES } from '@/lib/config/features';
 import { WaitlistCount } from '@/components/waitlist/waitlist-count';
 import { Suspense } from 'react';
 import { WaitlistCountSkeleton } from '@/components/waitlist/waitlist-count-skeleton';
+import { CardContainer, CardBody } from '@/components/ui/3d-card';
+import { AnimatedTestimonials } from '@/components/ui/animated-testimonials';
 
 export const dynamic = 'force-dynamic';
+
+const testimonials = [
+  {
+    quote:
+      'This tool has completely changed how I monitor crypto markets. The instant alerts are invaluable.',
+    name: 'Alex Thompson',
+    designation: 'Crypto Trader',
+    src: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=300&h=300&q=90',
+  },
+  {
+    quote:
+      'The combination of social monitoring and price alerts gives me a complete market perspective.',
+    name: 'Sarah Chen',
+    designation: 'Investment Analyst',
+    src: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=300&h=300&q=90',
+  },
+  {
+    quote:
+      "Best crypto monitoring tool I've used. The phone call alerts ensure I never miss important movements.",
+    name: 'Michael Rodriguez',
+    designation: 'Portfolio Manager',
+    src: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=300&h=300&q=90',
+  },
+];
 
 function WaitlistHero() {
   return (
@@ -56,6 +82,7 @@ export default function LandingPage() {
   return (
     <div className="flex min-h-screen flex-col">
       <Header>
+        {/* <NavigationMenu /> */}
         {FEATURES.isWaitlistMode && (
           <Suspense fallback={<WaitlistCountSkeleton />}>
             <WaitlistCount />
@@ -67,36 +94,60 @@ export default function LandingPage() {
         {FEATURES.isWaitlistMode ? <WaitlistHero /> : <AppHero />}
 
         <section className="mx-auto mb-16 grid max-w-5xl gap-8 md:grid-cols-3">
-          <div className="rounded-lg border bg-card p-6">
-            <X className="mb-4 h-12 w-12 text-primary" />
-            <h3 className="mb-3 font-display text-xl font-semibold tracking-tight">
-              X Account Monitoring
-            </h3>
-            <p className="text-muted-foreground">
-              Track posts from key crypto influencers and project accounts. Create powerful alerts
-              by combining social signals with price targets.
-            </p>
-          </div>
+          <CardContainer className="py-0">
+            <CardBody className="relative h-auto w-auto">
+              <div className="p-6">
+                <X className="mb-4 h-12 w-12 text-primary" />
+                <h3 className="mb-3 font-display text-xl font-semibold tracking-tight">
+                  X Account Monitoring
+                </h3>
+                <p className="text-muted-foreground">
+                  Track posts from key crypto influencers and project accounts. Create powerful
+                  alerts by combining social signals with price targets.
+                </p>
+              </div>
+            </CardBody>
+          </CardContainer>
 
-          <div className="rounded-lg border bg-card p-6">
-            <LineChart className="mb-4 h-12 w-12 text-primary" />
-            <h3 className="mb-3 font-display text-xl font-semibold tracking-tight">Price Alerts</h3>
-            <p className="text-muted-foreground">
-              Set custom price targets for any cryptocurrency. Combine with social monitoring to
-              validate market movements.
-            </p>
-          </div>
+          <CardContainer className="py-0">
+            <CardBody className="relative h-auto w-auto">
+              <div className="p-6">
+                <LineChart className="mb-4 h-12 w-12 text-primary" />
+                <h3 className="mb-3 font-display text-xl font-semibold tracking-tight">
+                  Price Alerts
+                </h3>
+                <p className="text-muted-foreground">
+                  Set custom price targets for any cryptocurrency. Combine with social monitoring to
+                  validate market movements.
+                </p>
+              </div>
+            </CardBody>
+          </CardContainer>
 
-          <div className="rounded-lg border bg-card p-6">
-            <Bell className="mb-4 h-12 w-12 text-primary" />
-            <h3 className="mb-3 font-display text-xl font-semibold tracking-tight">
-              Instant Notifications
-            </h3>
-            <p className="text-muted-foreground">
-              Receive SMS, Telegram, and phone call alerts. Stay informed of critical market
-              movements and influential social signals 24/7.
+          <CardContainer className="py-0">
+            <CardBody className="relative h-auto w-auto">
+              <div className="p-6">
+                <Bell className="mb-4 h-12 w-12 text-primary" />
+                <h3 className="mb-3 font-display text-xl font-semibold tracking-tight">
+                  Instant Notifications
+                </h3>
+                <p className="text-muted-foreground">
+                  Receive SMS, Telegram, and phone call alerts. Stay informed of critical market
+                  movements and influential social signals 24/7.
+                </p>
+              </div>
+            </CardBody>
+          </CardContainer>
+        </section>
+
+        <section className="mx-auto mb-16 max-w-5xl">
+          <div className="mb-12 text-center">
+            <h2 className="mb-4 font-display text-3xl font-bold tracking-tight">What Users Say</h2>
+            <p className="text-xl text-muted-foreground">
+              Join thousands of traders who trust CryptoSentry
             </p>
           </div>
+          <AnimatedTestimonials testimonials={testimonials} />
         </section>
 
         <section className="mx-auto mb-16 max-w-5xl">

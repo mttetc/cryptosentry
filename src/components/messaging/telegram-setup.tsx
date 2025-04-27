@@ -15,8 +15,8 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { MessageCircle } from 'lucide-react';
-import { updateUserPreferences } from '@/actions/user';
-import { getUserPreferences } from '@/actions/user';
+import { updateUserPreferences } from '@/actions/user/lib/core';
+import { getUserPreferences } from '@/actions/user/lib/core';
 
 export function TelegramSetup() {
   const [isLoading, setIsLoading] = useState(false);

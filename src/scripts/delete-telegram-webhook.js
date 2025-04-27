@@ -19,14 +19,14 @@ async function deleteWebhook() {
   }
 
   try {
-    console.log('Deleting webhook...');
+    console.warn('Deleting webhook...');
 
     const response = await fetch(`https://api.telegram.org/bot${botToken}/deleteWebhook`);
 
     const data = await response.json();
 
     if (data.ok) {
-      console.log('Webhook deleted successfully');
+      console.warn('Webhook deleted successfully');
     } else {
       console.error('Failed to delete webhook:', data.description);
     }
