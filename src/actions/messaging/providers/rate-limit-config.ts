@@ -32,6 +32,13 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
     blockDuration: 1800000, // 30 minutes
     maxConsecutiveFailures: 10,
   },
+  // SSE routes
+  '^/api/sse': {
+    limit: 1000, // Much higher limit for SSE
+    window: 60000, // 1 minute
+    blockDuration: 300000, // 5 minutes
+    maxConsecutiveFailures: 20,
+  },
   // Dashboard routes
   '^/dashboard/.*': {
     limit: 60,

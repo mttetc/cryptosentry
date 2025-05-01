@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useUser } from '@/hooks/use-user';
 import { Logo } from '@/components/ui/logo';
 import { FEATURES } from '@/lib/config/features';
+
 interface HeaderProps {
   children?: React.ReactNode;
 }
@@ -18,7 +19,11 @@ export default function Header({ children }: HeaderProps) {
         <Logo />
 
         <nav className="flex items-center gap-4">
-          {FEATURES.isWaitlistMode ? (
+          {FEATURES.isDevMode ? (
+            <Link href="/dashboard">
+              <Button>Go to Dashboard</Button>
+            </Link>
+          ) : FEATURES.isWaitlistMode ? (
             children
           ) : user ? (
             <Link href="/dashboard">

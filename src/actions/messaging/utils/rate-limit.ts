@@ -8,6 +8,7 @@ import {
   getRateLimitConfig,
   MAX_ENTRIES,
 } from '@/actions/messaging/providers/rate-limit-store';
+import { FEATURES } from '@/lib/config/features';
 
 export async function rateLimit(
   ip: string,
@@ -15,6 +16,16 @@ export async function rateLimit(
   userAgent: string = 'unknown',
   ipCountry?: string
 ): Promise<{ success: boolean; remaining: number; resetAt: number }> {
+  // In development mode, completely bypass rate limiting for SSE
+  if (FEATURES.isDevMode && path === '/api/sse') {
+    return { success: true, remaining: 1000, resetAt: Date.now() + 60000 };
+  }
+
+  // In development mode, use more lenient limits
+  if (FEATURES.isDevMode) {
+    return { success: true, remaining: 1000, resetAt: Date.now() + 60000 };
+  }
+
   const now = Date.now();
 
   // Get rate limit config for this route

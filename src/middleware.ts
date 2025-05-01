@@ -8,6 +8,11 @@ export async function middleware(request: NextRequest) {
   // First, update the session
   const res = await updateSession(request);
 
+  // In dev mode, bypass all authentication
+  if (FEATURES.isDevMode) {
+    return res;
+  }
+
   // If in waitlist mode, block access to auth and dashboard routes
   if (FEATURES.isWaitlistMode) {
     const isProtectedRoute =

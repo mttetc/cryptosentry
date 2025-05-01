@@ -4,6 +4,7 @@ import { rateLimit } from '@/actions/messaging/utils/rate-limit';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { monitorEvent } from '@/actions/monitor/lib/core';
 import { NextRequest } from 'next/server';
+import { FEATURES } from '@/lib/config/features';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,6 +17,7 @@ const CONNECTIONS = new Map<
     timeoutId: NodeJS.Timeout;
     heartbeatId: NodeJS.Timeout;
     lastActivity: number;
+    cleanup: () => void;
   }
 >();
 
@@ -39,11 +41,14 @@ function cleanup(connectionId: string) {
     clearTimeout(connection.timeoutId);
     clearInterval(connection.heartbeatId);
 
-    // Close the controller
+    // Close the controller with error handling
     try {
       connection.controller.close();
     } catch (error) {
-      console.error('Error closing controller:', error);
+      // Ignore errors if the controller is already closed
+      if (!(error instanceof TypeError && error.message.includes('already closed'))) {
+        console.error('Error closing controller:', error);
+      }
     }
 
     // Remove from connections map
@@ -55,6 +60,15 @@ function cleanup(connectionId: string) {
       userConnections.delete(connectionId);
       if (userConnections.size === 0) {
         USER_CONNECTIONS.delete(connection.userId);
+      }
+    }
+
+    // Call the cleanup function if it exists
+    if (connection.cleanup) {
+      try {
+        connection.cleanup();
+      } catch (error) {
+        console.error('Error in cleanup function:', error);
       }
     }
   }
@@ -87,20 +101,27 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Check authentication
-    const supabase = await createServerSupabaseClient();
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    let userId: string;
 
-    if (!session?.user.id) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      });
+    if (FEATURES.isDevMode) {
+      // In dev mode, use a default user ID
+      userId = 'dev-user';
+    } else {
+      // Check authentication
+      const supabase = await createServerSupabaseClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.user.id) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      userId = session.user.id;
     }
-
-    const userId = session.user.id;
 
     // Check if user has reached maximum connections
     const userConnections = USER_CONNECTIONS.get(userId) || new Set();
@@ -178,33 +199,28 @@ export async function GET(request: NextRequest) {
             timeoutId,
             heartbeatId,
             lastActivity: Date.now(),
+            cleanup: () => {
+              // Additional cleanup logic if needed
+            },
           });
 
           // Add to user connections
-          userConnections.add(connectionId);
-          USER_CONNECTIONS.set(userId, userConnections);
+          if (!USER_CONNECTIONS.has(userId)) {
+            USER_CONNECTIONS.set(userId, new Set());
+          }
+          USER_CONNECTIONS.get(userId)?.add(connectionId);
 
           // Send initial connection message
           controller.enqueue(
             encodeSSE('init', {
-              timestamp: Date.now(),
-              connectionId,
               status: 'connected',
+              connectionId,
               userId,
+              timestamp: Date.now(),
             })
           );
-
-          // Cleanup on close
-          request.signal.addEventListener('abort', () => {
-            cleanup(connectionId);
-          });
         } catch (error) {
-          console.error('Stream initialization error:', error);
-          try {
-            controller.error(new Error('Failed to initialize stream'));
-          } catch (e) {
-            console.error('Failed to send error to controller:', e);
-          }
+          console.error('Error in stream start:', error);
           cleanup(connectionId);
         }
       },
