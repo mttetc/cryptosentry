@@ -80,15 +80,6 @@ function AlertsOverview() {
         variant: 'destructive',
       });
     },
-    retryOnError: true,
-    maxRetries: 5,
-    onMaxRetriesReached: () => {
-      toast({
-        title: 'Connection Failed',
-        description: 'Maximum reconnection attempts reached',
-        variant: 'destructive',
-      });
-    },
   });
 
   return (

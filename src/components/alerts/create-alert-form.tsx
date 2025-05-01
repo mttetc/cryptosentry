@@ -5,8 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useCallback, useOptimistic } from 'react';
+import { useCallback, useOptimistic, useState } from 'react';
 import { useFormStatus } from 'react-dom';
+import { AutocompleteInput } from '@/components/ui/autocomplete-input';
+import { searchSocialAccounts } from '@/lib/services/social/search';
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -20,6 +22,7 @@ function SubmitButton() {
 
 export function CreateAlertForm() {
   const [optimisticState, setOptimisticState] = useOptimistic(initialAlertState);
+  const [account, setAccount] = useState('');
 
   const handlePriceSubmit = useCallback(
     async (formData: FormData) => {
@@ -139,12 +142,14 @@ export function CreateAlertForm() {
                 <label htmlFor="account" className="text-sm font-medium">
                   Account
                 </label>
-                <Input
+                <AutocompleteInput
                   id="account"
                   name="account"
                   placeholder="e.g., @elonmusk"
                   required
                   className="w-full"
+                  onSelect={setAccount}
+                  value={account}
                 />
               </div>
               <div className="space-y-2">

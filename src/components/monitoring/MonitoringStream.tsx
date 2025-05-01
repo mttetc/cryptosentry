@@ -51,16 +51,6 @@ export function MonitoringStream() {
         description: data.message,
       });
     },
-    retryOnError: true,
-    maxRetries: 5,
-    onMaxRetriesReached: () => {
-      setError('Maximum reconnection attempts reached. Please refresh the page.');
-      toast({
-        variant: 'destructive',
-        title: 'Connection Failed',
-        description: 'Maximum reconnection attempts reached. Please refresh the page.',
-      });
-    },
   });
 
   // This component doesn't render anything

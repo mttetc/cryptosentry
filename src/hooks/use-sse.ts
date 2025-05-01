@@ -1,5 +1,4 @@
 import { sseEventSchema } from '@/actions/monitor/schemas/sse';
-import { sseConfig } from '@/lib/config/sse';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface UseSSEOptions {
@@ -8,41 +7,16 @@ interface UseSSEOptions {
   onInit?: (_data: { connectionId: string; status: string; userId?: string }) => void;
   onTimeout?: (_data: { reason: string; timestamp: number }) => void;
   onError?: (_data: { message: string; code?: string; details?: any }) => void;
-  retryOnError?: boolean;
-  maxRetries?: number;
-  onMaxRetriesReached?: (_data: { reason: string }) => void;
 }
 
 export function useSSE(url: string, options: UseSSEOptions = {}) {
-  const {
-    onPriceUpdate,
-    onSocialUpdate,
-    onInit,
-    onTimeout,
-    onError,
-    retryOnError = true,
-    maxRetries = sseConfig.maxRetries,
-    onMaxRetriesReached,
-  } = options;
+  const { onPriceUpdate, onSocialUpdate, onInit, onTimeout, onError } = options;
 
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [connectionId, setConnectionId] = useState<string | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const lastActivityRef = useRef<number>(Date.now());
-  const [retryCount, setRetryCount] = useState(0);
-  const connectRef = useRef<(() => void) | null>(null);
-
-  const handleReconnect = useCallback((): void => {
-    if (retryCount < maxRetries) {
-      setRetryCount((prev) => prev + 1);
-      connectRef.current?.();
-    } else {
-      onMaxRetriesReached?.({
-        reason: 'Maximum reconnection attempts reached',
-      });
-    }
-  }, [maxRetries, onMaxRetriesReached, retryCount]);
 
   const connect = useCallback((): void => {
     if (eventSourceRef.current) {
@@ -58,7 +32,6 @@ export function useSSE(url: string, options: UseSSEOptions = {}) {
       eventSource.addEventListener('open', () => {
         setIsConnected(true);
         setError(null);
-        setRetryCount(0);
         lastActivityRef.current = Date.now();
       });
 
@@ -211,58 +184,28 @@ export function useSSE(url: string, options: UseSSEOptions = {}) {
           setIsConnected(false);
           setError('Connection lost');
           eventSource.close();
-
-          if (retryOnError) {
-            handleReconnect();
-          }
         }
       });
     } catch (err) {
       console.error('Failed to create EventSource:', err);
       setError('Failed to connect to event source');
-
-      if (retryOnError) {
-        handleReconnect();
-      }
     }
-  }, [
-    url,
-    onPriceUpdate,
-    onSocialUpdate,
-    onInit,
-    onTimeout,
-    onError,
-    retryOnError,
-    handleReconnect,
-  ]);
+  }, [url, onPriceUpdate, onSocialUpdate, onInit, onTimeout, onError]);
 
-  // Store connect function in ref
-  useEffect(() => {
-    connectRef.current = connect;
-  }, [connect]);
-
-  useEffect(() => {
-    if (isConnected) {
-      setRetryCount(0);
-    }
-  }, [isConnected]);
-
+  // Cleanup on unmount
   useEffect(() => {
     connect();
 
     return () => {
-      const eventSource = eventSourceRef.current;
-      if (eventSource) {
-        eventSource.close();
-        eventSourceRef.current = null;
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
       }
     };
-  }, [connect]);
+  }, []);
 
   return {
     isConnected,
     error,
     connectionId,
-    retryCount,
   };
 }

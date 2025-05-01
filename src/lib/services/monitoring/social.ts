@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import type { MonitorState } from '@/actions/monitor/schemas/monitor-schemas';
+import * as cheerio from 'cheerio';
 
 const NITTER_INSTANCES = ['nitter.net', 'nitter.cz', 'nitter.privacydev.net'] as const;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
@@ -26,7 +27,7 @@ async function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function fetchFromNitter(account: string): Promise<Tweet[]> {
+export async function fetchFromNitter(account: string): Promise<Tweet[]> {
   // Check cache first
   const cached = tweetCache.get(account);
   if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
@@ -80,23 +81,15 @@ async function fetchFromNitter(account: string): Promise<Tweet[]> {
 
 function parseTweets(html: string, account: string): Tweet[] {
   const tweets: Tweet[] = [];
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, 'text/html');
+  const $ = cheerio.load(html);
 
   // Find all tweet containers
-  const tweetElements = doc.querySelectorAll('.timeline-item');
-
-  for (const element of tweetElements) {
+  $('.timeline-item').each((_index: number, element: cheerio.Element) => {
     try {
-      const contentElement = element.querySelector('.tweet-content');
-      const timeElement = element.querySelector('.tweet-date');
-      const linkElement = element.querySelector('.tweet-link');
-
-      if (!contentElement || !timeElement || !linkElement) continue;
-
-      const content = contentElement.textContent?.trim() || '';
-      const timestamp = timeElement.getAttribute('datetime') || new Date().toISOString();
-      const url = linkElement.getAttribute('href') || '';
+      const $element = $(element);
+      const content = $element.find('.tweet-content').text().trim();
+      const timestamp = $element.find('.tweet-date').attr('datetime') || new Date().toISOString();
+      const url = $element.find('.tweet-link').attr('href') || '';
       const id = url.split('/').pop() || '';
 
       const tweet = tweetSchema.parse({
@@ -110,9 +103,8 @@ function parseTweets(html: string, account: string): Tweet[] {
       tweets.push(tweet);
     } catch (error) {
       console.error('Error parsing tweet:', error);
-      continue;
     }
-  }
+  });
 
   return tweets;
 }
