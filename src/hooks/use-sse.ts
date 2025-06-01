@@ -201,6 +201,7 @@ export function useSSE(url: string, options: UseSSEOptions = {}) {
         eventSourceRef.current.close();
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return {

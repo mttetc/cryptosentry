@@ -8,7 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCallback, useOptimistic, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { AutocompleteInput } from '@/components/ui/autocomplete-input';
-import { searchSocialAccounts } from '@/lib/services/social/search';
 
 function SubmitButton() {
   const { pending } = useFormStatus();

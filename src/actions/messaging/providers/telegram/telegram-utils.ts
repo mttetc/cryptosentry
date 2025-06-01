@@ -6,7 +6,7 @@ import { TELEGRAM_CONFIG } from './telegram-config';
  * Optimizes a message for Telegram by truncating it if necessary
  * and ensuring it's properly formatted for the Telegram API.
  */
-export function optimizeTelegramMessage(message: string): string {
+export async function optimizeTelegramMessage(message: string): Promise<string> {
   // Truncate message if it exceeds Telegram's maximum length
   if (message.length > TELEGRAM_CONFIG.MAX_MESSAGE_LENGTH) {
     return message.substring(0, TELEGRAM_CONFIG.MAX_MESSAGE_LENGTH - 3) + '...';
@@ -23,7 +23,7 @@ export function optimizeTelegramMessage(message: string): string {
  * Telegram doesn't require a specific format for phone numbers,
  * but we'll standardize it to E.164 format for consistency
  */
-export function formatPhoneNumberForTelegram(phone: string): string {
+export async function formatPhoneNumberForTelegram(phone: string): Promise<string> {
   // Remove any non-digit characters
   const digitsOnly = phone.replace(/\D/g, '');
 
@@ -34,9 +34,9 @@ export function formatPhoneNumberForTelegram(phone: string): string {
 /**
  * Extracts user information from a Telegram message
  */
-export function extractUserFromTelegramMessage(
+export async function extractUserFromTelegramMessage(
   message: any
-): { userId: string; username?: string } | null {
+): Promise<{ userId: string; username?: string } | null> {
   if (!message || !message.from) {
     return null;
   }
@@ -50,11 +50,11 @@ export function extractUserFromTelegramMessage(
 /**
  * Generates a deep link for a Telegram bot
  */
-export function generateTelegramDeepLink(
+export async function generateTelegramDeepLink(
   botUsername: string,
   command: string,
   params?: Record<string, string>
-): string {
+): Promise<string> {
   let deepLink = `https://t.me/${botUsername}?start=${command}`;
 
   if (params) {

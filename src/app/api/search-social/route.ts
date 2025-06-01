@@ -8,7 +8,6 @@ export async function GET(request: Request) {
     console.log('API: Received search query:', query);
 
     const results = await searchSocialAccounts(query);
-    console.log('API: Search results:', results);
     return NextResponse.json(results);
   } catch (error) {
     console.error('Error in search-social API:', error);

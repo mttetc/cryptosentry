@@ -15,13 +15,11 @@ export function useDebounce<T extends (...args: any[]) => any>(
   }, []);
 
   return (...args: Parameters<T>) => {
-    console.log('[useDebounce] Setting up timeout');
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
 
     timeoutRef.current = setTimeout(() => {
-      console.log('[useDebounce] Executing callback');
       callback(...args);
     }, delay);
   };

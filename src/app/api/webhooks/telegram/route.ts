@@ -57,7 +57,7 @@ export async function POST(request: Request) {
     }
 
     // Extract user info from the message
-    const userInfo = extractUserFromTelegramMessage(message);
+    const userInfo = await extractUserFromTelegramMessage(message);
     if (!userInfo) {
       return NextResponse.json({ error: 'Could not extract user info' }, { status: 400 });
     }
